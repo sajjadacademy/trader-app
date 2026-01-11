@@ -3,10 +3,11 @@
 // For Web (Browser) 'http://localhost:8000' works fine.
 
 // CHANGE THIS IP ADDRESS TO CONNECT FROM MOBILE
-const BASE_DOMAIN = 'http://localhost:8000';
+// CHANGE THIS IP ADDRESS TO CONNECT FROM MOBILE
+const BASE_DOMAIN = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-const API_URL = BASE_DOMAIN;
-const SOCKET_URL = BASE_DOMAIN.replace('http', 'ws'); // basic ws handling
+export const API_URL = BASE_DOMAIN;
+const SOCKET_URL = BASE_DOMAIN.replace('https', 'wss').replace('http', 'ws');
 
 export const api = {
     // Auth

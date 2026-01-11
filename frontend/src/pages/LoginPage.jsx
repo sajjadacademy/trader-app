@@ -205,6 +205,12 @@ const LoginPage = ({ onClose, onLoginSuccess, onRegister, isRoot = false }) => {
                     </div>
                 )}
             </div>
+            {/* Server Dropdown */}
+            {/* ... (existing code) ... */}
+
+            <div className="absolute bottom-2 left-0 right-0 text-center text-[10px] text-gray-600">
+                Server: {import.meta.env.VITE_API_URL ? 'Cloud' : 'Local'} ({import.meta.env.VITE_API_URL || 'localhost'})
+            </div>
         </div>
     );
 };
