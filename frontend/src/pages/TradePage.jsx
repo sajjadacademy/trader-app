@@ -62,9 +62,9 @@ const TradePage = ({ onNewOrder, activeTrades, balance, onMenuClick, onCloseTrad
                         let currentVelocity = currentVelocities[tradeId] || 0;
 
                         // Physics parameters
-                        const accelerationFactor = 0.000005; // How much random force affects velocity
-                        const dampingFactor = 0.95;         // How much velocity decays each tick
-                        const maxVelocity = 0.0005;         // Max velocity to prevent runaway prices
+                        const accelerationFactor = 0.00002; // Increased for visibility
+                        const dampingFactor = 0.95;
+                        const maxVelocity = 0.001;          // Increased cap
 
                         // Apply random acceleration
                         const acceleration = (Math.random() - 0.5) * accelerationFactor;
@@ -178,7 +178,7 @@ const TradePage = ({ onNewOrder, activeTrades, balance, onMenuClick, onCloseTrad
                         <div>
                             <div className="flex items-center space-x-2">
                                 <span className="font-bold text-lg">{trade.symbol}</span>
-                                <span className={`${trade.type === 'buy' ? 'text-blue-400' : 'text-red-400'} text-xs uppercase font-bold`}>{trade.type} {trade.volume}</span>
+                                <span className={`${trade.type === 'buy' ? 'text-blue-400' : 'text-red-400'} text-xs uppercase font-bold`}>{trade.type} {Number(trade.volume).toFixed(2)}</span>
                             </div>
                             <div className="text-xs text-gray-400">
                                 {trade.entry_price?.toFixed(5)} → {trade.currentPrice?.toFixed(5)}
