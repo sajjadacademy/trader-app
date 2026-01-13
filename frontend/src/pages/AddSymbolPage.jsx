@@ -104,7 +104,7 @@ const AddSymbolPage = ({ onBack, onAddSymbol, userSymbols }) => {
                                             <Check size={16} className="text-white" />
                                         </div>
                                     ) : (
-                                        <div className="w-6 h-6 rounded-full border border-green-500 flex items-center justify-center text-green-500 hover:bg-green-500 hover:text-white transition-colors">
+                                        <div className="w-6 h-6 rounded-full border border-blue-500 flex items-center justify-center text-blue-500 hover:bg-blue-500 hover:text-white transition-colors">
                                             <Plus size={16} />
                                         </div>
                                     )}
