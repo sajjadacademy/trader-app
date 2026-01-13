@@ -138,72 +138,92 @@ const TradePage = ({ onNewOrder, activeTrades, balance, onMenuClick, onCloseTrad
 
     }, [activeTrades, simulatedPrices, balance]);
 
-    // Helper for dotted leader
-    const StatRow = ({ label, value, isBold = false }) => (
-        <div className="flex items-baseline justify-between w-full mb-1">
-            <span className={`text-white text-sm ${isBold ? 'font-bold' : ''}`}>{label}</span>
-            <div className="flex-1 border-b border-dotted border-gray-600 mx-2 relative top-[-4px]"></div>
-            <span className={`text-white text-sm font-bold`}>{value.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, " ")}</span>
+    // Helper for formatting money like "100 000.00"
+    const formatMoney = (val) => {
+        if (val === undefined || val === null) return "0.00";
+        return val.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+    };
+
+    // Helper for dotted leader rows
+    const StatRow = ({ label, value }) => (
+        <div className="flex items-end justify-between w-full mb-1">
+            <span className="text-[#8e8e93] text-sm whitespace-nowrap">{label}</span>
+            <div className="flex-1 border-b border-dotted border-[#3a3a3c] mx-1 relative top-[-4px]"></div>
+            <span className="text-white text-sm font-bold whitespace-nowrap">{formatMoney(value)}</span>
         </div>
     );
 
+    const marginLevel = displayStats.margin > 0 ? (displayStats.equity / displayStats.margin) * 100 : 0;
+
     return (
-        <div className="flex flex-col h-full bg-black text-white">
+        <div className="flex flex-col h-full bg-black text-white font-sans">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 bg-black">
+            <div className="h-14 flex items-center justify-between px-4 shrink-0 bg-black">
                 <div className="flex items-center space-x-4">
-                    <button onClick={onMenuClick}><Menu size={24} className="text-white" /></button>
-                    <h1 className="text-xl font-bold">Trade</h1>
+                    <button onClick={onMenuClick}>
+                        <Menu size={24} className="text-white" />
+                    </button>
+                    <div className="flex flex-col">
+                        <span className="text-[12px] font-bold text-gray-400 leading-tight">Trade</span>
+                        {/* Show total floating PL in header if active trades exist, else show nothing or balance */}
+                        {activeTrades && activeTrades.length > 0 && (
+                            <span className={`text-sm font-bold ${displayStats.equity >= displayStats.balance ? 'text-[#0a84ff]' : 'text-[#ff3b30]'}`}>
+                                {(displayStats.equity - displayStats.balance).toFixed(2)} USD
+                            </span>
+                        )}
+                    </div>
                 </div>
-                <div className="flex items-center space-x-4">
-                    <ArrowUpDown size={24} className="text-white" />
-                    <button onClick={onNewOrder}>
-                        <FolderPlus size={24} className="text-white" />
+                <div className="flex items-center space-x-5">
+                    <button className="text-white transform rotate-90"><ArrowUpDown size={20} strokeWidth={2} /></button>
+                    <button onClick={onNewOrder} className="text-white border border-white/20 rounded p-0.5">
+                        <FolderPlus size={18} strokeWidth={2} />
                     </button>
                 </div>
             </div>
 
-            {/* Stats Section */}
-            <div className="p-4 pt-0">
-                <StatRow label="Balance:" value={displayStats.balance} isBold={true} />
-                <StatRow label="Equity:" value={displayStats.equity} isBold={true} />
+            {/* Stats Area */}
+            <div className="px-4 py-2 mt-1 space-y-1 bg-black">
+                <StatRow label="Balance:" value={displayStats.balance} />
+                <StatRow label="Equity:" value={displayStats.equity} />
                 <StatRow label="Margin:" value={displayStats.margin} />
-                <StatRow label="Free margin:" value={displayStats.freeMargin} isBold={true} />
+                <StatRow label="Free margin:" value={displayStats.freeMargin} />
+                <StatRow label="Margin Level (%):" value={marginLevel} />
             </div>
 
-            {/* Active Trades List */}
-            <div className="flex-1 overflow-y-auto px-4 mt-2 space-y-2">
-                {displayTrades.map((trade) => (
-                    <div key={trade.id} className="bg-[#1c1c1e] p-3 rounded-lg flex justify-between items-center shadow-sm">
-                        <div>
-                            <div className="flex items-center space-x-2">
-                                <span className="font-bold text-lg">{trade.symbol}</span>
-                                <span className={`${trade.type === 'buy' ? 'text-blue-400' : 'text-red-400'} text-xs uppercase font-bold`}>{trade.type} {Number(trade.volume).toFixed(2)}</span>
-                            </div>
-                            <div className="text-xs text-gray-400">
-                                {trade.entry_price?.toFixed(5)} → {trade.currentPrice?.toFixed(5)}
-                            </div>
-                        </div>
-                        <div className={`text-right font-bold ${trade.profit >= 0 ? 'text-blue-400' : 'text-red-400'}`}>
-                            {trade.profit > 0 ? '+' : ''}{trade.profit.toFixed(2)}
-                        </div>
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onCloseTrade(trade.id, trade.currentPrice);
-                            }}
-                            className="ml-4 p-2 bg-gray-800 rounded-full hover:bg-gray-700 active:bg-gray-600 transition-colors"
-                        >
-                            <X size={16} className="text-gray-400" />
-                        </button>
-                    </div>
-                ))}
+            {/* Positions Header */}
+            <div className="flex items-center justify-between px-4 py-2 mt-2 bg-[#1c1c1e]">
+                <span className="text-sm font-bold text-white">Positions</span>
+                <span className="text-gray-400 pb-2">...</span>
+            </div>
 
-                {displayTrades.length === 0 && (
-                    <div className="text-center text-gray-600 mt-20 text-sm">
-                        No active trades
-                    </div>
-                )}
+            {/* Trade List */}
+            <div className="flex-1 overflow-y-auto bg-black">
+                {displayTrades.map((trade) => {
+                    const isProfit = trade.profit >= 0;
+                    return (
+                        <div key={trade.id} className="flex justify-between items-center px-4 py-3 border-b border-[#1c1c1e] bg-black active:bg-[#1c1c1e]" onClick={() => onCloseTrade(trade.id, trade.currentPrice)}>
+                            {/* Left: Info */}
+                            <div className="flex flex-col space-y-1">
+                                <div className="flex items-baseline space-x-2">
+                                    <span className="font-bold text-base text-white">{trade.symbol},</span>
+                                    <span className={`text-sm font-bold ${trade.type === 'buy' ? 'text-[#0a84ff]' : 'text-[#ff3b30]'}`}>
+                                        {trade.type} {Number(trade.volume).toFixed(2)}
+                                    </span>
+                                </div>
+                                <div className="flex items-center space-x-1 text-sm text-[#8e8e93]">
+                                    <span>{trade.entry_price?.toFixed(5)}</span>
+                                    <span>→</span>
+                                    <span>{trade.currentPrice?.toFixed(5)}</span>
+                                </div>
+                            </div>
+
+                            {/* Right: Profit */}
+                            <div className={`text-base font-bold ${isProfit ? 'text-[#0a84ff]' : 'text-[#ff3b30]'}`}>
+                                {isProfit ? '' : ''}{trade.profit.toFixed(2)}
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
         </div>
     );

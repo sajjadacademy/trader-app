@@ -7,11 +7,12 @@ import HistoryPage from './pages/HistoryPage';
 import MessagesPage from './pages/MessagesPage';
 import DemoAccountModal from './components/DemoAccountModal';
 import RegistrationForm from './components/RegistrationForm';
-import LoginPage from './pages/LoginPage'; // Use new Full Page Login
+import LoginPage from './pages/LoginPage';
 import ChartsPage from './pages/ChartsPage';
-import NewOrderModal from './components/NewOrderModal';
 import Sidebar from './components/Sidebar';
 import AddSymbolPage from './pages/AddSymbolPage';
+import NewOrderPage from './pages/NewOrderPage';
+import OrderConfirmation from './components/OrderConfirmation';
 import { ALL_SYMBOLS } from './data/symbols';
 import { api } from './api';
 
@@ -20,15 +21,17 @@ const MobileApp = () => {
     const [activeTab, setActiveTab] = useState('quotes');
     const [showDemoModal, setShowDemoModal] = useState(false);
     const [showRegistration, setShowRegistration] = useState(false);
-    const [showLogin, setShowLogin] = useState(false); // Login State
+    const [showLogin, setShowLogin] = useState(false);
     const [showAccounts, setShowAccounts] = useState(false);
     const [showNewOrder, setShowNewOrder] = useState(false);
+    const [showConfirmation, setShowConfirmation] = useState(false);
+    const [lastTrade, setLastTrade] = useState(null);
     const [showSidebar, setShowSidebar] = useState(false);
 
     // New UI State for Add Symbol
     const [showAddSymbol, setShowAddSymbol] = useState(false);
-    // Initialize user symbols with some defaults (e.g. first 5)
-    // In a real app, this would come from the user profile or local storage
+
+    // User symbols
     const [userSymbols, setUserSymbols] = useState(ALL_SYMBOLS.slice(0, 7));
 
     // Auth & Data State
@@ -56,8 +59,9 @@ const MobileApp = () => {
         const fetchData = async () => {
             try {
                 const allTrades = await api.getTrades(token);
+                // Augment trades with simulation data
                 const active = allTrades.filter(t => t.status === 'OPEN').map(t => {
-                    const currentPrice = t.type === 'buy' ? 1.08510 : 1.08490; // Mock current price
+                    const currentPrice = t.type === 'buy' ? 1.08510 : 1.08490; // Mock current price fallback
                     const multiplier = t.type === 'buy' ? 1 : -1;
                     const profit = (currentPrice - t.entry_price) * t.volume * multiplier * 100000;
 
@@ -105,19 +109,32 @@ const MobileApp = () => {
         setShowAccounts(true);
     };
 
-    const handlePlaceOrder = async (type, volume) => {
-        if (!token) return; // Should not happen now
+    const handlePlaceOrder = async (type, volume, price) => {
+        if (!token) return;
 
         try {
+            // Mock trade ID since API might not return it instantly in this demo text
+            const mockId = Math.floor(Math.random() * 10000000000);
+
             await api.placeTrade(token, {
                 symbol: 'EURUSD',
                 type: type,
                 volume: volume,
-                entry_price: type === 'buy' ? 1.08500 : 1.08505,
+                entry_price: price || (type === 'buy' ? 1.08500 : 1.08505),
                 sl: 0,
                 tp: 0
             });
+
+            setLastTrade({
+                symbol: 'EURUSD',
+                type,
+                volume,
+                price: price || (type === 'buy' ? 1.08500 : 1.08505),
+                id: `#${mockId}`
+            });
+
             setShowNewOrder(false);
+            setShowConfirmation(true);
         } catch (error) {
             alert("Failed to place order: " + error.message);
         }
@@ -129,14 +146,12 @@ const MobileApp = () => {
             await api.closeTrade(token, tradeId, price);
             // Optimistic update
             setActiveTrades(prev => prev.filter(t => t.id !== tradeId));
-            alert("Trade Closed");
         } catch (error) {
             alert("Failed to close trade: " + error.message);
         }
     };
 
     const handleAddSymbol = (symbolObj) => {
-        // Add if not already present
         setUserSymbols(prev => {
             if (prev.find(s => s.symbol === symbolObj.symbol)) return prev;
             return [...prev, symbolObj];
@@ -155,6 +170,28 @@ const MobileApp = () => {
                     onAddAccount={() => setShowLogin(true)}
                     onSignIn={() => setShowLogin(true)}
                     onRegister={() => setShowRegistration(true)}
+                />
+            );
+        }
+
+        if (showConfirmation && lastTrade) {
+            return (
+                <OrderConfirmation
+                    trade={lastTrade}
+                    onDone={() => {
+                        setShowConfirmation(false);
+                        setActiveTab('trade');
+                    }}
+                />
+            );
+        }
+
+        if (showNewOrder) {
+            return (
+                <NewOrderPage
+                    symbol="EURUSD"
+                    onClose={() => setShowNewOrder(false)}
+                    onPlaceOrder={handlePlaceOrder}
                 />
             );
         }
@@ -180,22 +217,16 @@ const MobileApp = () => {
             case 'charts': return <ChartsPage onMenuClick={toggleSidebar} />;
             case 'trade': return (
                 <TradePage
-                    onMenuClick={toggleSidebar}
                     onNewOrder={() => setShowNewOrder(true)}
                     activeTrades={activeTrades}
-                    balance={balance}
+                    balance={balance} // Pass balance for generic stats
+                    onMenuClick={toggleSidebar}
                     onCloseTrade={handleCloseTrade}
                 />
             );
-            case 'history': return <HistoryPage onMenuClick={toggleSidebar} historyTrades={historyTrades} balance={balance} />;
-            case 'messages': return (
-                <MessagesPage
-                    onMenuClick={toggleSidebar}
-                    onRegister={() => setShowRegistration(true)}
-                    onSignIn={() => setShowLogin(true)}
-                />
-            );
-            default: return <QuotesPage onMenuClick={toggleSidebar} />;
+            case 'history': return <HistoryPage historyTrades={historyTrades} onMenuClick={toggleSidebar} />;
+            case 'messages': return <MessagesPage onMenuClick={toggleSidebar} />;
+            default: return <QuotesPage onMenuClick={toggleSidebar} userQuotes={userSymbols} />;
         }
     };
 
@@ -206,7 +237,7 @@ const MobileApp = () => {
         }
         return (
             <LoginPage
-                onClose={() => { }} // Cannot close login if not auth
+                onClose={() => { }}
                 onLoginSuccess={handleLoginSuccess}
                 onRegister={() => setShowRegistration(true)}
                 isRoot={true}
@@ -233,14 +264,6 @@ const MobileApp = () => {
                     onLoginSuccess={handleLoginSuccess}
                     onRegister={() => { setShowLogin(false); setShowRegistration(true); }}
                     isRoot={false}
-                />
-            )}
-
-            {showNewOrder && (
-                <NewOrderModal
-                    isOpen={showNewOrder}
-                    onClose={() => setShowNewOrder(false)}
-                    onPlaceOrder={handlePlaceOrder}
                 />
             )}
         </MobileLayout>
