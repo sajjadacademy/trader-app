@@ -174,38 +174,6 @@ const MobileApp = () => {
             );
         }
 
-        if (showConfirmation && lastTrade) {
-            return (
-                <OrderConfirmation
-                    trade={lastTrade}
-                    onDone={() => {
-                        setShowConfirmation(false);
-                        setActiveTab('trade');
-                    }}
-                />
-            );
-        }
-
-        if (showNewOrder) {
-            return (
-                <NewOrderPage
-                    symbol="EURUSD"
-                    onClose={() => setShowNewOrder(false)}
-                    onPlaceOrder={handlePlaceOrder}
-                />
-            );
-        }
-
-        if (showAddSymbol) {
-            return (
-                <AddSymbolPage
-                    onBack={() => setShowAddSymbol(false)}
-                    onAddSymbol={handleAddSymbol}
-                    userSymbols={userSymbols}
-                />
-            );
-        }
-
         switch (activeTab) {
             case 'quotes': return (
                 <QuotesPage
@@ -241,6 +209,39 @@ const MobileApp = () => {
                 onLoginSuccess={handleLoginSuccess}
                 onRegister={() => setShowRegistration(true)}
                 isRoot={true}
+            />
+        );
+    }
+
+    // Full screen overlays that hide bottom menu
+    if (showNewOrder) {
+        return (
+            <NewOrderPage
+                symbol="EURUSD"
+                onClose={() => setShowNewOrder(false)}
+                onPlaceOrder={handlePlaceOrder}
+            />
+        );
+    }
+
+    if (showConfirmation && lastTrade) {
+        return (
+            <OrderConfirmation
+                trade={lastTrade}
+                onDone={() => {
+                    setShowConfirmation(false);
+                    setActiveTab('trade');
+                }}
+            />
+        );
+    }
+
+    if (showAddSymbol) {
+        return (
+            <AddSymbolPage
+                onBack={() => setShowAddSymbol(false)}
+                onAddSymbol={handleAddSymbol}
+                userSymbols={userSymbols}
             />
         );
     }

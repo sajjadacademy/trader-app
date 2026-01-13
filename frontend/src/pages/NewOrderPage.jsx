@@ -15,7 +15,7 @@ const NewOrderPage = ({ symbol = 'EURUSD', onClose, onPlaceOrder, currentBid = 1
         // Init history
         let p = currentBid;
         const initialPoints = Array(60).fill(0).map((_, i) => {
-            if (i > 40) p += (Math.random() - 0.5) * 0.0002; // Movement at end
+            if (i > 40) p += (Math.random() - 0.5) * 0.0002;
             return p;
         });
         setTickHistory(initialPoints);
@@ -24,7 +24,7 @@ const NewOrderPage = ({ symbol = 'EURUSD', onClose, onPlaceOrder, currentBid = 1
             setBid(prev => {
                 const move = (Math.random() - 0.5) * 0.0001;
                 const next = prev + move;
-                setAsk(next + 0.00003); // Spread ~3 pips
+                setAsk(next + 0.00003);
 
                 setTickHistory(h => {
                     const newH = [...h.slice(1), next];
@@ -55,11 +55,13 @@ const NewOrderPage = ({ symbol = 'EURUSD', onClose, onPlaceOrder, currentBid = 1
         const min = Math.min(...tickHistory, currentBid - 0.0004) - 0.0001;
         const range = max - min;
 
+        // Start from left
         let d = `M 0,${100 - ((tickHistory[0] + offset - min) / range * 100)}`;
 
         tickHistory.forEach((p, i) => {
             if (i === 0) return;
-            const x = (i / (tickHistory.length - 1)) * 100;
+            // Stop zigzag at 90% width to trigger straight line effect
+            const x = (i / (tickHistory.length - 1)) * 90;
             const y = 100 - ((p + offset - min) / range * 100);
 
             // Step: Horizontal then Vertical
@@ -67,178 +69,191 @@ const NewOrderPage = ({ symbol = 'EURUSD', onClose, onPlaceOrder, currentBid = 1
             d += ` L ${x},${y}`;
         });
 
-        // Add final horizontal line to edge
+        // Final straight line to the edge (price card) from 90% to 100%
         const lastY = 100 - ((tickHistory[tickHistory.length - 1] + offset - min) / range * 100);
         d += ` L 100,${lastY}`;
 
         return { d, min, max, lastY };
     };
 
+    // Generate paths
     const bidPathData = generateStepPath(0);
     const askPathData = generateStepPath(ask - bid);
 
+    // Color: Dark Red for Sell/Bid, Deep Blue for Buy/Ask if we want standard, but user specifically asked for "dork red" [dark red] for price text.
+    // The screenshot has RED digits for both Bid and Ask. So keeping red for digits.
+    const tickerColor = "text-[#cc0000]"; // Deeper red
+
     return (
-        <div className="flex flex-col h-full bg-black text-white font-sans select-none">
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 py-2 bg-black">
-                <button onClick={onClose}><ArrowLeft size={22} className="text-white" /></button>
-                <div className="flex flex-col items-center">
-                    <h1 className="text-[15px] font-bold text-white tracking-wide">{symbol}</h1>
-                    <span className="text-[10px] text-[#8e8e93]">Euro vs US Dollar</span>
-                </div>
-                <button><RefreshCw size={20} className="text-white" /></button>
-            </div>
-
-            {/* Market Execution Box */}
-            <div className="mx-4 mt-2 mb-6">
-                <div className="w-full border border-[#3a3a3c] rounded p-2 text-center text-sm font-normal relative bg-black cursor-pointer active:bg-[#1c1c1e]">
-                    Market Execution
-                    <div className="absolute right-0 bottom-0 w-1.5 h-1.5 bg-white transform rotate-45 translate-x-0.5 translate-y-0.5"></div>
+        <div className="fixed inset-0 z-50 flex flex-col h-full bg-black text-white font-sans select-none">
+            {/* Header: Left aligned, no right icons except maybe space */}
+            <div className="flex items-center px-4 py-3 bg-black space-x-6 border-b border-transparent">
+                <button onClick={onClose}><ArrowLeft size={24} className="text-white" /></button>
+                <div className="flex flex-col items-start">
+                    <h1 className="text-xl font-bold text-white tracking-wide uppercase">{symbol}</h1>
+                    <span className="text-[12px] text-[#8e8e93] mt-0.5">Euro vs US Dollar</span>
                 </div>
             </div>
 
-            {/* Volume Control */}
-            <div className="flex items-center justify-between px-2 mb-6 mt-4">
-                <div className="flex space-x-5">
-                    <button onClick={() => setVolume(Math.max(0.01, volume - 0.5))} className="text-[#0a84ff] text-sm font-medium">-0.5</button>
-                    <button onClick={() => setVolume(Math.max(0.01, volume - 0.1))} className="text-[#0a84ff] text-sm font-medium">-0.1</button>
-                    <button onClick={() => setVolume(Math.max(0.01, volume - 0.01))} className="text-[#0a84ff] text-sm font-medium">-0.01</button>
+            {/* Market Execution: Gray line below, slight arrow */}
+            <div className="mx-4 mt-1">
+                <div className="w-full border-b border-[#3a3a3c] pb-3 flex justify-between items-center cursor-pointer active:bg-[#1c1c1e]">
+                    <div className="w-4"></div> {/* Spacer */}
+                    <span className="text-base font-medium text-white">Market Execution</span>
+                    {/* Custom Triangle */}
+                    <div className="w-0 h-0 border-l-[4px] border-l-transparent border-t-[5px] border-t-[#8e8e93] border-r-[4px] border-r-transparent transform translate-y-0.5"></div>
                 </div>
+            </div>
 
-                <span className="text-white font-bold text-xl tracking-wider">{volume.toFixed(2)}</span>
+            {/* Volume Control: Numbers under gray line */}
+            <div className="px-4 mt-4 mb-4">
+                <div className="flex items-center justify-between pb-8 border-b border-[#3a3a3c]">
+                    <div className="flex space-x-3">
+                        <button onClick={() => setVolume(Math.max(0.01, volume - 0.5))} className="text-[#0a84ff] text-sm font-medium">-0.5</button>
+                        <button onClick={() => setVolume(Math.max(0.01, volume - 0.1))} className="text-[#0a84ff] text-sm font-medium">-0.1</button>
+                        <button onClick={() => setVolume(Math.max(0.01, volume - 0.01))} className="text-[#0a84ff] text-sm font-medium">-0.01</button>
+                    </div>
 
-                <div className="flex space-x-5">
-                    <button onClick={() => setVolume(volume + 0.01)} className="text-[#0a84ff] text-sm font-medium">+0.01</button>
-                    <button onClick={() => setVolume(volume + 0.1)} className="text-[#0a84ff] text-sm font-medium">+0.1</button>
-                    <button onClick={() => setVolume(volume + 0.5)} className="text-[#0a84ff] text-sm font-medium">+0.5</button>
+                    <span className="text-white font-bold text-xl">{volume.toFixed(2)}</span>
+
+                    <div className="flex space-x-3">
+                        <button onClick={() => setVolume(volume + 0.01)} className="text-[#0a84ff] text-sm font-medium">+0.01</button>
+                        <button onClick={() => setVolume(volume + 0.1)} className="text-[#0a84ff] text-sm font-medium">+0.1</button>
+                        <button onClick={() => setVolume(volume + 0.5)} className="text-[#0a84ff] text-sm font-medium">+0.5</button>
+                    </div>
                 </div>
             </div>
 
             {/* Big Tickers */}
-            <div className="flex justify-between px-8 mb-6">
-                {/* BID (Sell Price) - Left */}
-                <div className="flex items-start text-[#ff3b30]">
-                    <span className="text-[28px] leading-none mt-1.5 font-normal">{bidParts.small}</span>
-                    <span className="text-[54px] leading-none font-normal mx-0.5">{bidParts.big}</span>
-                    <span className="text-[18px] leading-none mt-1 font-normal">{bidParts.sup}</span>
+            <div className="flex justify-between px-8 mb-6 mt-2">
+                {/* BID */}
+                <div className={`flex items-start ${tickerColor}`}>
+                    <span className="text-[34px] font-normal tracking-tight">{bidParts.small}</span>
+                    <span className="text-[60px] font-normal leading-none -mt-1 mx-1">{bidParts.big}</span>
+                    <span className="text-[22px] font-normal -mt-0">{bidParts.sup}</span>
                 </div>
 
-                {/* ASK (Buy Price) - Right */}
-                <div className="flex items-start text-[#ff3b30]">
-                    <span className="text-[28px] leading-none mt-1.5 font-normal">{askParts.small}</span>
-                    <span className="text-[54px] leading-none font-normal mx-0.5">{askParts.big}</span>
-                    <span className="text-[18px] leading-none mt-1 font-normal">{askParts.sup}</span>
+                {/* ASK */}
+                <div className={`flex items-start ${tickerColor}`}>
+                    <span className="text-[34px] font-normal tracking-tight">{askParts.small}</span>
+                    <span className="text-[60px] font-normal leading-none -mt-1 mx-1">{askParts.big}</span>
+                    <span className="text-[22px] font-normal -mt-0">{askParts.sup}</span>
                 </div>
             </div>
 
-            {/* SL / TP Row */}
-            <div className="flex px-4 space-x-8 mb-4">
-                <div className="flex-1 flex items-center">
-                    <button className="text-[#0a84ff] text-xl px-3 font-light">-</button>
-                    <div className="flex-1 text-center border-b border-[#3a3a3c] text-[#8e8e93] text-sm pb-1">SL</div>
-                    <button className="text-[#0a84ff] text-xl px-3 font-light">+</button>
+            {/* SL / TP Row: No underlines under labels */}
+            <div className="flex px-4 space-x-8 mb-2">
+                <div className="flex-1 flex items-center justify-between">
+                    <button className="text-[#0a84ff] text-2xl px-2 font-light">-</button>
+                    <div className="flex-1 text-center text-[#8e8e93] text-sm pb-1 mx-2">
+                        SL
+                    </div>
+                    <button className="text-[#0a84ff] text-2xl px-2 font-light">+</button>
                 </div>
-                <div className="flex-1 flex items-center">
-                    <button className="text-[#0a84ff] text-xl px-3 font-light">-</button>
-                    <div className="flex-1 text-center border-b border-[#3a3a3c] text-[#8e8e93] text-sm pb-1">TP</div>
-                    <button className="text-[#0a84ff] text-xl px-3 font-light">+</button>
+
+                <div className="flex-1 flex items-center justify-between">
+                    <button className="text-[#0a84ff] text-2xl px-2 font-light">-</button>
+                    <div className="flex-1 text-center text-[#8e8e93] text-sm pb-1 mx-2">
+                        TP
+                    </div>
+                    <button className="text-[#0a84ff] text-2xl px-2 font-light">+</button>
                 </div>
             </div>
 
-            <div className="flex px-4 space-x-8 mb-1">
-                <div className="flex-1 flex items-center justify-between border-b border-[#3a3a3c] pb-1 mx-3">
-                    <span className="text-[#8e8e93] text-xs">Fill policy</span>
-                    <span className="text-white text-xs">Fill or Kill</span>
+            {/* Fill Policy */}
+            <div className="flex px-6 space-x-4 mb-2 mt-4">
+                <div className="flex-1 flex items-center justify-between border-b border-[#3a3a3c] pb-2">
+                    <span className="text-[#8e8e93] text-sm">Fill policy</span>
+                    <span className="text-white text-sm">Fill or Kill</span>
                 </div>
             </div>
 
 
             {/* Chart Area */}
-            <div className="flex-1 w-full relative mt-2 border-t border-dashed border-[#3a3a3c]/30">
-                {/* Horizontal Grid */}
-                <div className="absolute inset-0 flex flex-col justify-evenly pointer-events-none">
-                    <div className="border-t border-dashed border-[#3a3a3c]/30 w-full h-px"></div>
-                    <div className="border-t border-dashed border-[#3a3a3c]/30 w-full h-px"></div>
-                </div>
-                {/* Right Axis Labels */}
-                <div className="absolute right-0 top-0 bottom-0 flex flex-col justify-between py-2 text-[#8e8e93] text-[9px] pr-1 z-0">
-                    <span>{bidPathData.max.toFixed(5)}</span>
-                    <span>{bidPathData.min.toFixed(5)}</span>
+            <div className="flex-1 w-full relative mt-4">
+                {/* 3 Dashed Grid Lines - spaced manually for look */}
+                <div className="absolute inset-0 flex flex-col justify-center space-y-12 pointer-events-none px-0">
+                    <div className="border-t border-dotted border-[#3a3a3c] w-full h-px relative">
+                        {/* Price Label */}
+                        <span className="absolute right-0 -top-2 text-[10px] text-[#8e8e93] bg-black px-1">
+                            {(askPathData.max - 0.0001).toFixed(5)}
+                        </span>
+                    </div>
+                    <div className="border-t border-dotted border-[#3a3a3c] w-full h-px relative">
+                        <span className="absolute right-0 -top-2 text-[10px] text-[#8e8e93] bg-black px-1">
+                            {(askPathData.max - 0.0003).toFixed(5)}
+                        </span>
+                    </div>
+                    <div className="border-t border-dotted border-[#3a3a3c] w-full h-px relative">
+                        <span className="absolute right-0 -top-2 text-[10px] text-[#8e8e93] bg-black px-1">
+                            {(askPathData.min + 0.0001).toFixed(5)}
+                        </span>
+                    </div>
                 </div>
 
                 <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                    {/* Ask Line (Red) - Top Line */}
+                    {/* Ask Line (Red) */}
                     <path
                         d={askPathData.d}
                         fill="none"
                         stroke="#ff3b30"
-                        strokeWidth="1"
+                        strokeWidth="1.2"
                         vectorEffect="non-scaling-stroke"
                     />
-                    {/* Bid Line (Blue) - Bottom Line */}
+                    {/* Bid Line (Blue) */}
                     <path
                         d={bidPathData.d}
                         fill="none"
                         stroke="#0a84ff"
-                        strokeWidth="1"
+                        strokeWidth="1.2"
                         vectorEffect="non-scaling-stroke"
                     />
                 </svg>
 
                 {/* Specific Price Cards (Tags) */}
-                {/* Red Card/Line for Ask */}
+                {/* Red Card for Ask */}
                 <div
-                    className="absolute right-0 bg-[#ff3b30] text-white text-[10px] px-1 py-0.5 leading-none transition-all duration-300 z-10"
+                    className="absolute right-0 bg-[#ff3b30] text-white text-[11px] px-1 py-0.5 leading-none z-10"
                     style={{ top: `${askPathData.lastY}%`, transform: 'translateY(-50%)' }}
                 >
                     {ask.toFixed(5)}
                 </div>
-                {/* Horizontal line extension for Red */}
-                <div
-                    className="absolute right-0 w-full border-t border-[#ff3b30] opacity-50 transition-all duration-300 pointer-events-none"
-                    style={{ top: `${askPathData.lastY}%` }}
-                ></div>
 
-                {/* Blue Card/Line for Bid */}
+                {/* Blue Card for Bid */}
                 <div
-                    className="absolute right-0 bg-[#0a84ff] text-white text-[10px] px-1 py-0.5 leading-none transition-all duration-300 z-10"
+                    className="absolute right-0 bg-[#0a84ff] text-white text-[11px] px-1 py-0.5 leading-none z-10"
                     style={{ top: `${bidPathData.lastY}%`, transform: 'translateY(-50%)' }}
                 >
                     {bid.toFixed(5)}
                 </div>
-                {/* Horizontal line extension for Blue */}
-                <div
-                    className="absolute right-0 w-full border-t border-[#0a84ff] opacity-50 transition-all duration-300 pointer-events-none"
-                    style={{ top: `${bidPathData.lastY}%` }}
-                ></div>
             </div>
 
-            {/* Disclaimer */}
-            <div className="px-4 text-center mt-2 mb-4">
-                <p className="text-[9px] text-[#5c5c5e] leading-tight mx-4">
+            {/* Attention Text: Increased Size */}
+            <div className="px-6 text-center mb-6 mt-4">
+                <p className="text-[13px] text-[#8e8e93] leading-snug">
                     Attention! The trade will be executed at market conditions, difference with requested price may be significant!
                 </p>
             </div>
 
             {/* Buy/Sell Buttons */}
-            <div className="grid grid-cols-2 gap-0 mb-6 relative border-t border-[#3a3a3c]/30">
+            <div className="grid grid-cols-2 gap-0 mb-8 relative border-t border-[#3a3a3c]/30">
                 {/* Vertical Divider */}
                 <div className="absolute left-1/2 top-4 bottom-4 w-[1px] bg-[#3a3a3c]"></div>
 
                 <button
                     onClick={() => onPlaceOrder('sell', volume, bid)}
-                    className="flex flex-col items-center justify-center p-3 active:bg-[#1c1c1e] transition-colors"
+                    className="flex flex-col items-center justify-center p-4 active:bg-[#1c1c1e] transition-colors"
                 >
-                    <span className="text-[#ff3b30] font-bold text-[15px]">SELL</span>
-                    <span className="text-[#ff3b30] text-[10px] font-bold uppercase mt-0.5">BY MARKET</span>
+                    <span className="text-[#ff3b30] font-bold text-lg">SELL</span>
+                    <span className="text-[#ff3b30] text-[11px] font-bold uppercase mt-1">BY MARKET</span>
                 </button>
 
                 <button
                     onClick={() => onPlaceOrder('buy', volume, ask)}
-                    className="flex flex-col items-center justify-center p-3 active:bg-[#1c1c1e] transition-colors"
+                    className="flex flex-col items-center justify-center p-4 active:bg-[#1c1c1e] transition-colors"
                 >
-                    <span className="text-[#0a84ff] font-bold text-[15px]">BUY</span>
-                    <span className="text-[#0a84ff] text-[10px] font-bold uppercase mt-0.5">BY MARKET</span>
+                    <span className="text-[#0a84ff] font-bold text-lg">BUY</span>
+                    <span className="text-[#0a84ff] text-[11px] font-bold uppercase mt-1">BY MARKET</span>
                 </button>
             </div>
         </div>
