@@ -41,20 +41,16 @@ const QuotesPage = ({ onMenuClick, userQuotes, onAddSymbolClick }) => {
 
                 let newBid = isTickUp ? q.bid + movementValue : q.bid - movementValue;
                 // Keep spread mostly constant but fluctuate slightly
-                let currentSpread = q.spread * Math.pow(10, q.digits); // converting to points
-                // Small spread fluctuation
-                // const spreadFluctuation = Math.floor(Math.random() * 3) - 1; 
-                // We'll keep spread simple for now to avoid math errors in display
-
                 let newAsk = newBid + (q.spread * Math.pow(10, -q.digits));
 
                 return {
                     ...q,
                     bid: newBid,
                     ask: newAsk,
-                    isUp: isTickUp, // Used for color flashing logic if we wanted to flash the whole row, but here mainly for internal state
-                    // We also update change percent slightly to make it look alive
-                    // changePoint: q.changePoint + (isTickUp ? 1 : -1)
+                    // Track per-price direction for coloring
+                    bidClass: newBid > q.bid ? 'text-[#0a84ff]' : (newBid < q.bid ? 'text-[#ff3b30]' : q.bidClass),
+                    askClass: newAsk > q.ask ? 'text-[#0a84ff]' : (newAsk < q.ask ? 'text-[#ff3b30]' : q.askClass),
+                    isUp: isTickUp,
                 };
             }));
         }, 800); // 800ms tick rate
@@ -95,6 +91,12 @@ const QuotesPage = ({ onMenuClick, userQuotes, onAddSymbolClick }) => {
                     const bidParts = formatPrice(q.bid, q.digits);
                     const askParts = formatPrice(q.ask, q.digits);
 
+                    // Default to white/gray if no class yet (initial load)
+                    const bidColor = q.bidClass || 'text-[#b0b0b5]';
+                    const askColor = q.askClass || 'text-[#b0b0b5]';
+                    const bidBigColor = q.bidClass || 'text-white';
+                    const askBigColor = q.askClass || 'text-white';
+
                     return (
                         <div key={q.symbol} className="flex justify-between items-center px-4 py-3 border-b border-[#1c1c1e] active:bg-[#1c1c1e] h-[88px]">
                             {/* LEFT: Symbol, Time, Spread, Change */}
@@ -123,23 +125,27 @@ const QuotesPage = ({ onMenuClick, userQuotes, onAddSymbolClick }) => {
                             {/* RIGHT: Bid / Ask Columns */}
                             <div className="flex space-x-6">
                                 {/* BID */}
-                                <div className="flex flex-col items-end">
-                                    <div className="flex items-baseline">
-                                        <span className="text-lg font-medium tracking-tight text-[#b0b0b5]">{bidParts.pre}</span>
-                                        <span className="text-3xl font-bold leading-none mx-[1px] text-white">{bidParts.big}</span>
-                                        <span className="text-xs font-bold -mt-2 text-[#b0b0b5]">{bidParts.sup}</span>
+                                <div className="flex flex-col items-end w-20">
+                                    <div className={`flex items-baseline ${bidColor}`}>
+                                        <span className="text-lg font-medium tracking-tight opacity-90">{bidParts.pre}</span>
+                                        <span className={`text-3xl font-bold leading-none mx-[1px] ${bidBigColor}`}>{bidParts.big}</span>
+                                        <span className="text-xs font-bold -mt-2 opacity-90">{bidParts.sup}</span>
                                     </div>
-                                    <span className="text-[11px] text-[#8e8e93] mt-1 font-medium">L: {q.low.toFixed(q.digits)}</span>
+                                    <div className="flex justify-center w-full mt-1">
+                                        <span className="text-[11px] text-[#8e8e93] font-medium">L: {q.low.toFixed(q.digits)}</span>
+                                    </div>
                                 </div>
 
                                 {/* ASK */}
-                                <div className="flex flex-col items-end">
-                                    <div className="flex items-baseline">
-                                        <span className="text-lg font-medium tracking-tight text-[#b0b0b5]">{askParts.pre}</span>
-                                        <span className="text-3xl font-bold leading-none mx-[1px] text-white">{askParts.big}</span>
-                                        <span className="text-xs font-bold -mt-2 text-[#b0b0b5]">{askParts.sup}</span>
+                                <div className="flex flex-col items-end w-20">
+                                    <div className={`flex items-baseline ${askColor}`}>
+                                        <span className="text-lg font-medium tracking-tight opacity-90">{askParts.pre}</span>
+                                        <span className={`text-3xl font-bold leading-none mx-[1px] ${askBigColor}`}>{askParts.big}</span>
+                                        <span className="text-xs font-bold -mt-2 opacity-90">{askParts.sup}</span>
                                     </div>
-                                    <span className="text-[11px] text-[#8e8e93] mt-1 font-medium">H: {q.high.toFixed(q.digits)}</span>
+                                    <div className="flex justify-center w-full mt-1">
+                                        <span className="text-[11px] text-[#8e8e93] font-medium">H: {q.high.toFixed(q.digits)}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
