@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Menu, ArrowUpDown, FolderPlus, X } from 'lucide-react';
 
 const TradePage = ({ onNewOrder, activeTrades, balance, onMenuClick, onCloseTrade }) => {
-    // Local state for simulated prices
+    // Local state for simulation
     const [simulatedPrices, setSimulatedPrices] = useState({});
+    const simulatedVelocitiesRef = useRef({}); // Using a ref for velocities to avoid re-renders
 
     // Combine props with simulation
     const [displayTrades, setDisplayTrades] = useState([]);
@@ -18,48 +19,76 @@ const TradePage = ({ onNewOrder, activeTrades, balance, onMenuClick, onCloseTrad
     useEffect(() => {
         if (!activeTrades) return;
 
-        // Ensure we have a simulated price for every active trade that needs it
-        setSimulatedPrices(prev => {
-            const next = { ...prev };
+        setSimulatedPrices(prevPrices => {
+            const nextPrices = { ...prevPrices };
             let changed = false;
+
             activeTrades.forEach(trade => {
-                // If trade is not forced, and we don't have a price yet, init it.
-                // We use trade.currentPrice (from backend mock) or entry_price as start point.
-                if (!trade.forced_outcome && !next[trade.id]) {
-                    next[trade.id] = trade.currentPrice || trade.entry_price;
+                if (!trade.forced_outcome && !nextPrices[trade.id]) {
+                    nextPrices[trade.id] = trade.currentPrice || trade.entry_price;
                     changed = true;
                 }
             });
-            return changed ? next : prev;
+            return changed ? nextPrices : prevPrices;
         });
+
+        // Initialize velocities if missing
+        const currentVelocities = simulatedVelocitiesRef.current;
+        let velocitiesChanged = false;
+        activeTrades.forEach(trade => {
+            if (!trade.forced_outcome && currentVelocities[trade.id] === undefined) {
+                currentVelocities[trade.id] = 0; // Start with 0 velocity
+                velocitiesChanged = true;
+            }
+        });
+        if (velocitiesChanged) {
+            simulatedVelocitiesRef.current = { ...currentVelocities };
+        }
     }, [activeTrades]);
 
-    // Simulation Timer
+    // Simulation Timer (Momentum Based)
     useEffect(() => {
         const interval = setInterval(() => {
-            setSimulatedPrices(prev => {
-                const next = { ...prev };
+            setSimulatedPrices(prevPrices => {
+                const nextPrices = { ...prevPrices };
+                const currentVelocities = simulatedVelocitiesRef.current;
                 let hasUpdates = false;
 
-                Object.keys(next).forEach(tradeId => {
-                    // Find the trade in activeTrades to check status
-                    // Note: activeTrades might update, but ids usually stable
+                Object.keys(nextPrices).forEach(tradeId => {
                     const trade = activeTrades?.find(t => t.id === parseInt(tradeId) || t.id === tradeId);
 
-                    // Only simulate if trade exists and is not forced
                     if (trade && !trade.forced_outcome) {
-                        const current = next[tradeId];
-                        // Random walk: +/- small amount
-                        // 1 pip = 0.0001
-                        // Move between -0.5 to +0.5 pips per tick? Or smaller?
-                        // "it should move like a real trade" -> erratic small movements
-                        const change = (Math.random() - 0.5) * 0.00010;
-                        next[tradeId] = current + change;
+                        let currentPrice = nextPrices[tradeId];
+                        let currentVelocity = currentVelocities[tradeId] || 0;
+
+                        // Physics parameters
+                        const accelerationFactor = 0.000005; // How much random force affects velocity
+                        const dampingFactor = 0.95;         // How much velocity decays each tick
+                        const maxVelocity = 0.0005;         // Max velocity to prevent runaway prices
+
+                        // Apply random acceleration
+                        const acceleration = (Math.random() - 0.5) * accelerationFactor;
+                        currentVelocity += acceleration;
+
+                        // Apply damping
+                        currentVelocity *= dampingFactor;
+
+                        // Clamp velocity
+                        currentVelocity = Math.max(-maxVelocity, Math.min(maxVelocity, currentVelocity));
+
+                        // Update price
+                        currentPrice += currentVelocity;
+
+                        nextPrices[tradeId] = currentPrice;
+                        currentVelocities[tradeId] = currentVelocity; // Update ref directly
                         hasUpdates = true;
                     }
                 });
 
-                return hasUpdates ? next : prev;
+                // Ensure the ref is updated with the new velocities
+                simulatedVelocitiesRef.current = { ...currentVelocities };
+
+                return hasUpdates ? nextPrices : prevPrices;
             });
         }, 100); // 100ms updates
 
@@ -72,7 +101,7 @@ const TradePage = ({ onNewOrder, activeTrades, balance, onMenuClick, onCloseTrad
         const currentBalance = balance || 100000.00;
 
         const processedTrades = trades.map(trade => {
-            // If forced outcome, use prop values (passed from MobileApp logic)
+            // If forced outcome, use prop values
             if (trade.forced_outcome) {
                 return trade;
             }
@@ -83,7 +112,6 @@ const TradePage = ({ onNewOrder, activeTrades, balance, onMenuClick, onCloseTrad
                 : (trade.currentPrice || trade.entry_price);
 
             // Calc Profit
-            // Profit = (current - entry) * volume * 100000 * (1 if buy, -1 if sell)
             const multiplier = trade.type === 'buy' ? 1 : -1;
             const diff = simPrice - trade.entry_price;
             const profit = diff * trade.volume * 100000 * multiplier;
