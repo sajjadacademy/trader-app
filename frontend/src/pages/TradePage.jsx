@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, ArrowUpDown, FolderPlus } from 'lucide-react';
+import { Menu, ArrowUpDown, FolderPlus, X } from 'lucide-react';
 
-const TradePage = ({ onNewOrder, activeTrades, balance, onMenuClick }) => {
+const TradePage = ({ onNewOrder, activeTrades, balance, onMenuClick, onCloseTrade }) => {
     // Local state for simulated prices
     const [simulatedPrices, setSimulatedPrices] = useState({});
 
@@ -159,6 +159,15 @@ const TradePage = ({ onNewOrder, activeTrades, balance, onMenuClick }) => {
                         <div className={`text-right font-bold ${trade.profit >= 0 ? 'text-blue-400' : 'text-red-400'}`}>
                             {trade.profit > 0 ? '+' : ''}{trade.profit.toFixed(2)}
                         </div>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onCloseTrade(trade.id, trade.currentPrice);
+                            }}
+                            className="ml-4 p-2 bg-gray-800 rounded-full hover:bg-gray-700 active:bg-gray-600 transition-colors"
+                        >
+                            <X size={16} className="text-gray-400" />
+                        </button>
                     </div>
                 ))}
 

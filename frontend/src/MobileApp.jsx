@@ -115,6 +115,18 @@ const MobileApp = () => {
         }
     };
 
+    const handleCloseTrade = async (tradeId, price) => {
+        if (!token) return;
+        try {
+            await api.closeTrade(token, tradeId, price);
+            // Optimistic update
+            setActiveTrades(prev => prev.filter(t => t.id !== tradeId));
+            alert("Trade Closed");
+        } catch (error) {
+            alert("Failed to close trade: " + error.message);
+        }
+    };
+
     const toggleSidebar = () => setShowSidebar(true);
 
     const renderContent = () => {
@@ -134,7 +146,15 @@ const MobileApp = () => {
         switch (activeTab) {
             case 'quotes': return <QuotesPage onMenuClick={toggleSidebar} />;
             case 'charts': return <ChartsPage onMenuClick={toggleSidebar} />;
-            case 'trade': return <TradePage onMenuClick={toggleSidebar} onNewOrder={() => setShowNewOrder(true)} activeTrades={activeTrades} balance={balance} />;
+            case 'trade': return (
+                <TradePage
+                    onMenuClick={toggleSidebar}
+                    onNewOrder={() => setShowNewOrder(true)}
+                    activeTrades={activeTrades}
+                    balance={balance}
+                    onCloseTrade={handleCloseTrade}
+                />
+            );
             case 'history': return <HistoryPage onMenuClick={toggleSidebar} historyTrades={historyTrades} balance={balance} />;
             case 'messages': return (
                 <MessagesPage
