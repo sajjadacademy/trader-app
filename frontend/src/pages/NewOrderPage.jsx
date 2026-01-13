@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, RefreshCw } from 'lucide-react';
+import { ArrowLeft, RefreshCw, CircleDollarSign } from 'lucide-react';
 
 const NewOrderPage = ({ symbol = 'EURUSD', onClose, onPlaceOrder, currentBid = 1.16413, currentAsk = 1.16416 }) => {
 
@@ -55,13 +55,15 @@ const NewOrderPage = ({ symbol = 'EURUSD', onClose, onPlaceOrder, currentBid = 1
         const min = Math.min(...tickHistory, currentBid - 0.0004) - 0.0001;
         const range = max - min;
 
-        // Start from left
+        // Scale factor: compress history to the left (e.g. 20% of width)
+        const scaleX = 0.25;
+
         let d = `M 0,${100 - ((tickHistory[0] + offset - min) / range * 100)}`;
 
         tickHistory.forEach((p, i) => {
             if (i === 0) return;
-            // Stop zigzag at 90% width to trigger straight line effect
-            const x = (i / (tickHistory.length - 1)) * 90;
+            // X coordinates mapped to 0..25% range
+            const x = (i / (tickHistory.length - 1)) * 100 * scaleX;
             const y = 100 - ((p + offset - min) / range * 100);
 
             // Step: Horizontal then Vertical
@@ -69,7 +71,7 @@ const NewOrderPage = ({ symbol = 'EURUSD', onClose, onPlaceOrder, currentBid = 1
             d += ` L ${x},${y}`;
         });
 
-        // Final straight line to the edge (price card) from 90% to 100%
+        // Final straight line extending from the "zigzag" end to the right edge (100%)
         const lastY = 100 - ((tickHistory[tickHistory.length - 1] + offset - min) / range * 100);
         d += ` L 100,${lastY}`;
 
@@ -80,34 +82,36 @@ const NewOrderPage = ({ symbol = 'EURUSD', onClose, onPlaceOrder, currentBid = 1
     const bidPathData = generateStepPath(0);
     const askPathData = generateStepPath(ask - bid);
 
-    // Color: Dark Red for Sell/Bid, Deep Blue for Buy/Ask if we want standard, but user specifically asked for "dork red" [dark red] for price text.
-    // The screenshot has RED digits for both Bid and Ask. So keeping red for digits.
-    const tickerColor = "text-[#cc0000]"; // Deeper red
+    const tickerColor = "text-[#cc0000]";
 
     return (
-        <div className="fixed inset-0 z-50 flex flex-col h-full bg-black text-white font-sans select-none">
-            {/* Header: Left aligned, no right icons except maybe space */}
-            <div className="flex items-center px-4 py-3 bg-black space-x-6 border-b border-transparent">
+        <div className="fixed inset-0 z-50 flex flex-col h-full bg-black text-white font-sans select-none overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center px-4 py-3 bg-black space-x-4 border-b border-transparent shrink-0">
                 <button onClick={onClose}><ArrowLeft size={24} className="text-white" /></button>
-                <div className="flex flex-col items-start">
+                <div className="flex flex-col items-start flex-1">
                     <h1 className="text-xl font-bold text-white tracking-wide uppercase">{symbol}</h1>
                     <span className="text-[12px] text-[#8e8e93] mt-0.5">Euro vs US Dollar</span>
                 </div>
+                {/* Right side icons stuck together */}
+                <div className="flex items-center space-x-4">
+                    <CircleDollarSign size={22} className="text-white" />
+                    <RefreshCw size={22} className="text-white" />
+                </div>
             </div>
 
-            {/* Market Execution: Gray line below, slight arrow */}
-            <div className="mx-4 mt-1">
-                <div className="w-full border-b border-[#3a3a3c] pb-3 flex justify-between items-center cursor-pointer active:bg-[#1c1c1e]">
-                    <div className="w-4"></div> {/* Spacer */}
+            {/* Market Execution */}
+            <div className="mx-4 mt-1 shrink-0">
+                <div className="w-full border-b border-[#3a3a3c] pb-2 flex justify-between items-center cursor-pointer active:bg-[#1c1c1e]">
+                    <div className="w-4"></div>
                     <span className="text-base font-medium text-white">Market Execution</span>
-                    {/* Custom Triangle */}
                     <div className="w-0 h-0 border-l-[4px] border-l-transparent border-t-[5px] border-t-[#8e8e93] border-r-[4px] border-r-transparent transform translate-y-0.5"></div>
                 </div>
             </div>
 
-            {/* Volume Control: Numbers under gray line */}
-            <div className="px-4 mt-4 mb-4">
-                <div className="flex items-center justify-between pb-8 border-b border-[#3a3a3c]">
+            {/* Volume Control */}
+            <div className="px-4 mt-4 mb-4 shrink-0">
+                <div className="flex items-center justify-between pb-6 border-b border-[#3a3a3c]">
                     <div className="flex space-x-3">
                         <button onClick={() => setVolume(Math.max(0.01, volume - 0.5))} className="text-[#0a84ff] text-sm font-medium">-0.5</button>
                         <button onClick={() => setVolume(Math.max(0.01, volume - 0.1))} className="text-[#0a84ff] text-sm font-medium">-0.1</button>
@@ -125,7 +129,7 @@ const NewOrderPage = ({ symbol = 'EURUSD', onClose, onPlaceOrder, currentBid = 1
             </div>
 
             {/* Big Tickers */}
-            <div className="flex justify-between px-8 mb-6 mt-2">
+            <div className="flex justify-between px-8 mb-4 mt-1 shrink-0">
                 {/* BID */}
                 <div className={`flex items-start ${tickerColor}`}>
                     <span className="text-[34px] font-normal tracking-tight">{bidParts.small}</span>
@@ -141,8 +145,8 @@ const NewOrderPage = ({ symbol = 'EURUSD', onClose, onPlaceOrder, currentBid = 1
                 </div>
             </div>
 
-            {/* SL / TP Row: No underlines under labels */}
-            <div className="flex px-4 space-x-8 mb-2">
+            {/* SL / TP Row */}
+            <div className="flex px-4 space-x-8 mb-2 shrink-0">
                 <div className="flex-1 flex items-center justify-between">
                     <button className="text-[#0a84ff] text-2xl px-2 font-light">-</button>
                     <div className="flex-1 text-center text-[#8e8e93] text-sm pb-1 mx-2">
@@ -161,7 +165,7 @@ const NewOrderPage = ({ symbol = 'EURUSD', onClose, onPlaceOrder, currentBid = 1
             </div>
 
             {/* Fill Policy */}
-            <div className="flex px-6 space-x-4 mb-2 mt-4">
+            <div className="flex px-6 space-x-4 mb-2 mt-4 shrink-0">
                 <div className="flex-1 flex items-center justify-between border-b border-[#3a3a3c] pb-2">
                     <span className="text-[#8e8e93] text-sm">Fill policy</span>
                     <span className="text-white text-sm">Fill or Kill</span>
@@ -169,12 +173,11 @@ const NewOrderPage = ({ symbol = 'EURUSD', onClose, onPlaceOrder, currentBid = 1
             </div>
 
 
-            {/* Chart Area */}
-            <div className="flex-1 w-full relative mt-4">
-                {/* 3 Dashed Grid Lines - spaced manually for look */}
+            {/* Chart Area - Flex Grow but min-h-0 to avoid overflow */}
+            <div className="flex-1 w-full relative mt-2 min-h-0">
+                {/* 3 Dashed Grid Lines */}
                 <div className="absolute inset-0 flex flex-col justify-center space-y-12 pointer-events-none px-0">
                     <div className="border-t border-dotted border-[#3a3a3c] w-full h-px relative">
-                        {/* Price Label */}
                         <span className="absolute right-0 -top-2 text-[10px] text-[#8e8e93] bg-black px-1">
                             {(askPathData.max - 0.0001).toFixed(5)}
                         </span>
@@ -210,8 +213,7 @@ const NewOrderPage = ({ symbol = 'EURUSD', onClose, onPlaceOrder, currentBid = 1
                     />
                 </svg>
 
-                {/* Specific Price Cards (Tags) */}
-                {/* Red Card for Ask */}
+                {/* Price Cards */}
                 <div
                     className="absolute right-0 bg-[#ff3b30] text-white text-[11px] px-1 py-0.5 leading-none z-10"
                     style={{ top: `${askPathData.lastY}%`, transform: 'translateY(-50%)' }}
@@ -219,7 +221,6 @@ const NewOrderPage = ({ symbol = 'EURUSD', onClose, onPlaceOrder, currentBid = 1
                     {ask.toFixed(5)}
                 </div>
 
-                {/* Blue Card for Bid */}
                 <div
                     className="absolute right-0 bg-[#0a84ff] text-white text-[11px] px-1 py-0.5 leading-none z-10"
                     style={{ top: `${bidPathData.lastY}%`, transform: 'translateY(-50%)' }}
@@ -228,16 +229,15 @@ const NewOrderPage = ({ symbol = 'EURUSD', onClose, onPlaceOrder, currentBid = 1
                 </div>
             </div>
 
-            {/* Attention Text: Increased Size */}
-            <div className="px-6 text-center mb-6 mt-4">
+            {/* Attention Text */}
+            <div className="px-6 text-center mb-4 mt-2 shrink-0">
                 <p className="text-[13px] text-[#8e8e93] leading-snug">
                     Attention! The trade will be executed at market conditions, difference with requested price may be significant!
                 </p>
             </div>
 
-            {/* Buy/Sell Buttons */}
-            <div className="grid grid-cols-2 gap-0 mb-8 relative border-t border-[#3a3a3c]/30">
-                {/* Vertical Divider */}
+            {/* Buy/Sell Buttons - Fixed Bottom or end of flow */}
+            <div className="grid grid-cols-2 gap-0 pb-6 relative border-t border-[#3a3a3c]/30 shrink-0 bg-black z-20">
                 <div className="absolute left-1/2 top-4 bottom-4 w-[1px] bg-[#3a3a3c]"></div>
 
                 <button
