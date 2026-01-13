@@ -1,229 +1,157 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Menu, ArrowUpDown, FolderPlus, X } from 'lucide-react';
+import { Menu, Plus } from 'lucide-react'; // Removing ArrowUpDown, FolderPlus from imports if not used
 
-const TradePage = ({ onNewOrder, activeTrades, balance, onMenuClick, onCloseTrade }) => {
+const TradePage = ({ onNewOrder, activeTrades = [], balance = 100000, onMenuClick, onCloseTrade }) => {
     // Local state for simulation
     const [simulatedPrices, setSimulatedPrices] = useState({});
-    const simulatedVelocitiesRef = useRef({}); // Using a ref for velocities to avoid re-renders
+    const simulatedVelocitiesRef = useRef({});
 
     // Combine props with simulation
     const [displayTrades, setDisplayTrades] = useState([]);
-    const [displayStats, setDisplayStats] = useState({
-        balance: 100000,
-        equity: 100000,
+
+    // Stats
+    const [stats, setStats] = useState({
+        equity: balance,
         margin: 0,
-        freeMargin: 100000
+        freeMargin: balance,
+        marginLevel: 0
     });
 
-    // Initialize/Sync simulation
+    // Initialize Simulation
     useEffect(() => {
         if (!activeTrades) return;
-
-        setSimulatedPrices(prevPrices => {
-            const nextPrices = { ...prevPrices };
-            let changed = false;
-
-            activeTrades.forEach(trade => {
-                if (!trade.forced_outcome && !nextPrices[trade.id]) {
-                    nextPrices[trade.id] = trade.currentPrice || trade.entry_price;
-                    changed = true;
-                }
+        setSimulatedPrices(prev => {
+            const next = { ...prev };
+            activeTrades.forEach(t => {
+                if (!next[t.id]) next[t.id] = t.currentPrice || t.price;
             });
-            return changed ? nextPrices : prevPrices;
+            return next;
         });
-
-        // Initialize velocities if missing
-        const currentVelocities = simulatedVelocitiesRef.current;
-        let velocitiesChanged = false;
-        activeTrades.forEach(trade => {
-            if (!trade.forced_outcome && currentVelocities[trade.id] === undefined) {
-                currentVelocities[trade.id] = 0; // Start with 0 velocity
-                velocitiesChanged = true;
-            }
-        });
-        if (velocitiesChanged) {
-            simulatedVelocitiesRef.current = { ...currentVelocities };
-        }
     }, [activeTrades]);
 
-    // Simulation Timer (Momentum Based)
+    // Physics Loop for Price Movement
     useEffect(() => {
         const interval = setInterval(() => {
-            setSimulatedPrices(prevPrices => {
-                const nextPrices = { ...prevPrices };
-                const currentVelocities = simulatedVelocitiesRef.current;
-                let hasUpdates = false;
+            setSimulatedPrices(prev => {
+                const next = { ...prev };
+                const vels = simulatedVelocitiesRef.current;
 
-                Object.keys(nextPrices).forEach(tradeId => {
-                    const trade = activeTrades?.find(t => t.id === parseInt(tradeId) || t.id === tradeId);
+                activeTrades.forEach(t => {
+                    if (!vels[t.id]) vels[t.id] = 0;
 
-                    if (trade && !trade.forced_outcome) {
-                        let currentPrice = nextPrices[tradeId];
-                        let currentVelocity = currentVelocities[tradeId] || 0;
+                    // Physics
+                    const accel = (Math.random() - 0.5) * 0.00005;
+                    vels[t.id] += accel;
+                    vels[t.id] *= 0.95; // damping
 
-                        // Physics parameters
-                        const accelerationFactor = 0.00002; // Increased for visibility
-                        const dampingFactor = 0.95;
-                        const maxVelocity = 0.001;          // Increased cap
+                    // Limit
+                    if (vels[t.id] > 0.0005) vels[t.id] = 0.0005;
+                    if (vels[t.id] < -0.0005) vels[t.id] = -0.0005;
 
-                        // Apply random acceleration
-                        const acceleration = (Math.random() - 0.5) * accelerationFactor;
-                        currentVelocity += acceleration;
-
-                        // Apply damping
-                        currentVelocity *= dampingFactor;
-
-                        // Clamp velocity
-                        currentVelocity = Math.max(-maxVelocity, Math.min(maxVelocity, currentVelocity));
-
-                        // Update price
-                        currentPrice += currentVelocity;
-
-                        nextPrices[tradeId] = currentPrice;
-                        currentVelocities[tradeId] = currentVelocity; // Update ref directly
-                        hasUpdates = true;
-                    }
+                    next[t.id] = (next[t.id] || t.price) + vels[t.id];
                 });
 
-                // Ensure the ref is updated with the new velocities
-                simulatedVelocitiesRef.current = { ...currentVelocities };
-
-                return hasUpdates ? nextPrices : prevPrices;
+                simulatedVelocitiesRef.current = vels;
+                return next;
             });
-        }, 100); // 100ms updates
-
+        }, 100);
         return () => clearInterval(interval);
     }, [activeTrades]);
 
-    // Calculate Derived State (Display Trades & Stats)
+    // Update Display Trades & Stats
     useEffect(() => {
-        const trades = activeTrades || [];
-        const currentBalance = balance || 100000.00;
-
-        const processedTrades = trades.map(trade => {
-            // If forced outcome, use prop values
-            if (trade.forced_outcome) {
-                return trade;
-            }
-
-            // Otherwise use simulated price to calc profit
-            const simPrice = simulatedPrices[trade.id] !== undefined
-                ? simulatedPrices[trade.id]
-                : (trade.currentPrice || trade.entry_price);
-
-            // Calc Profit
-            const multiplier = trade.type === 'buy' ? 1 : -1;
-            const diff = simPrice - trade.entry_price;
-            const profit = diff * trade.volume * 100000 * multiplier;
-
-            return {
-                ...trade,
-                currentPrice: simPrice,
-                profit: profit
-            };
+        const updatedTrades = activeTrades.map(t => {
+            const current = simulatedPrices[t.id] || t.price;
+            const diff = t.type === 'buy' ? (current - t.price) : (t.price - current);
+            const profit = diff * (t.volume * 100000); // Standard lot logic roughly
+            return { ...t, currentPrice: current, profit };
         });
 
-        const floatingPL = processedTrades.reduce((acc, trade) => acc + (trade.profit || 0), 0);
-        const equity = currentBalance + floatingPL;
-        const margin = processedTrades.reduce((acc, trade) => acc + (trade.volume * 100000 / 100), 0);
+        const totalProfit = updatedTrades.reduce((acc, t) => acc + t.profit, 0);
+        const equity = balance + totalProfit;
+        const margin = updatedTrades.length * 50; // Simple fixed margin
         const freeMargin = equity - margin;
+        const marginLevel = margin > 0 ? (equity / margin) * 100 : 0;
 
-        setDisplayTrades(processedTrades);
-        setDisplayStats({
-            balance: currentBalance,
-            equity,
-            margin,
-            freeMargin
-        });
-
+        setDisplayTrades(updatedTrades);
+        setStats({ equity, margin, freeMargin, marginLevel });
     }, [activeTrades, simulatedPrices, balance]);
 
-    // Helper for formatting money like "100 000.00"
-    const formatMoney = (val) => {
-        if (val === undefined || val === null) return "0.00";
-        return val.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-    };
-
-    // Helper for dotted leader rows
-    const StatRow = ({ label, value }) => (
-        <div className="flex items-end justify-between w-full mb-1">
-            <span className="text-[#8e8e93] text-sm whitespace-nowrap">{label}</span>
-            <div className="flex-1 border-b border-dotted border-[#3a3a3c] mx-1 relative top-[-4px]"></div>
-            <span className="text-white text-sm font-bold whitespace-nowrap">{formatMoney(value)}</span>
-        </div>
-    );
-
-    const marginLevel = displayStats.margin > 0 ? (displayStats.equity / displayStats.margin) * 100 : 0;
-
     return (
-        <div className="flex flex-col h-full bg-black text-white font-sans">
+        <div className="flex flex-col h-full bg-black text-white relative">
             {/* Header */}
-            <div className="h-14 flex items-center justify-between px-4 shrink-0 bg-black">
-                <div className="flex items-center space-x-4">
+            <div className="px-4 py-3 bg-black border-b border-[#3a3a3c]">
+                <div className="flex items-center justify-between mb-4">
                     <button onClick={onMenuClick}>
                         <Menu size={24} className="text-white" />
                     </button>
-                    <div className="flex flex-col">
-                        <span className="text-[12px] font-bold text-gray-400 leading-tight">Trade</span>
-                        {/* Show total floating PL in header if active trades exist, else show nothing or balance */}
-                        {activeTrades && activeTrades.length > 0 && (
-                            <span className={`text-sm font-bold ${displayStats.equity >= displayStats.balance ? 'text-[#0a84ff]' : 'text-[#ff3b30]'}`}>
-                                {(displayStats.equity - displayStats.balance).toFixed(2)} USD
-                            </span>
-                        )}
-                    </div>
+                    <h1 className="text-lg font-bold">Trade</h1>
+                    {/* Placeholder for top right, removed the '+' button from here */}
+                    <div className="w-6"></div>
                 </div>
-                <div className="flex items-center space-x-5">
-                    <button className="text-white transform rotate-90"><ArrowUpDown size={20} strokeWidth={2} /></button>
-                    <button onClick={onNewOrder} className="text-white border border-white/20 rounded p-0.5">
-                        <FolderPlus size={18} strokeWidth={2} />
-                    </button>
+
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 gap-y-1 text-sm bg-black z-10 relative">
+                    <div className="text-[#8e8e93]">Balance</div>
+                    <div className="text-right font-bold tracking-tight">{balance.toFixed(2)}</div>
+
+                    <div className="text-[#8e8e93]">Equity</div>
+                    <div className="text-right font-bold tracking-tight">{stats.equity.toFixed(2)}</div>
+
+                    <div className="text-[#8e8e93]">Margin</div>
+                    <div className="text-right font-bold tracking-tight">{stats.margin.toFixed(2)}</div>
+
+                    <div className="text-[#8e8e93]">Free margin</div>
+                    <div className="text-right font-bold tracking-tight">{stats.freeMargin.toFixed(2)}</div>
+
+                    <div className="text-[#8e8e93]">Margin level (%)</div>
+                    <div className="text-right font-bold tracking-tight">{stats.marginLevel.toFixed(0)}%</div>
                 </div>
             </div>
 
-            {/* Stats Area */}
-            <div className="px-4 py-2 mt-1 space-y-1 bg-black">
-                <StatRow label="Balance:" value={displayStats.balance} />
-                <StatRow label="Equity:" value={displayStats.equity} />
-                <StatRow label="Margin:" value={displayStats.margin} />
-                <StatRow label="Free margin:" value={displayStats.freeMargin} />
-                <StatRow label="Margin Level (%):" value={marginLevel} />
-            </div>
-
-            {/* Positions Header */}
-            <div className="flex items-center justify-between px-4 py-2 mt-2 bg-[#1c1c1e]">
-                <span className="text-sm font-bold text-white">Positions</span>
-                <span className="text-gray-400 pb-2">...</span>
-            </div>
-
-            {/* Trade List */}
-            <div className="flex-1 overflow-y-auto bg-black">
-                {displayTrades.map((trade) => {
-                    const isProfit = trade.profit >= 0;
-                    return (
-                        <div key={trade.id} className="flex justify-between items-center px-4 py-3 border-b border-[#1c1c1e] bg-black active:bg-[#1c1c1e]" onClick={() => onCloseTrade(trade.id, trade.currentPrice)}>
-                            {/* Left: Info */}
-                            <div className="flex flex-col space-y-1">
-                                <div className="flex items-baseline space-x-2">
-                                    <span className="font-bold text-base text-white">{trade.symbol},</span>
-                                    <span className={`text-sm font-bold ${trade.type === 'buy' ? 'text-[#0a84ff]' : 'text-[#ff3b30]'}`}>
-                                        {trade.type} {Number(trade.volume).toFixed(2)}
-                                    </span>
-                                </div>
-                                <div className="flex items-center space-x-1 text-sm text-[#8e8e93]">
-                                    <span>{trade.entry_price?.toFixed(5)}</span>
-                                    <span>→</span>
-                                    <span>{trade.currentPrice?.toFixed(5)}</span>
-                                </div>
+            {/* Scrollable List */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-2 pb-24">
+                {displayTrades.map((trade) => (
+                    <div key={trade.id} className="bg-[#1c1c1e] p-3 rounded flex justify-between items-center active:scale-[0.99] transition-transform">
+                        <div>
+                            <div className="flex items-center space-x-2">
+                                <span className="font-bold text-white text-base">{trade.symbol}</span>
+                                <span className={`text-[11px] font-bold uppercase ${trade.type === 'buy' ? 'text-[#0a84ff]' : 'text-[#ff3b30]'}`}>
+                                    {trade.type}
+                                </span>
+                                <span className="text-[11px] text-[#8e8e93]">{trade.volume.toFixed(2)}</span>
                             </div>
-
-                            {/* Right: Profit */}
-                            <div className={`text-base font-bold ${isProfit ? 'text-[#0a84ff]' : 'text-[#ff3b30]'}`}>
-                                {isProfit ? '' : ''}{trade.profit.toFixed(2)}
+                            <div className="flex items-center space-x-1 mt-1">
+                                <span className="text-[11px] text-[#8e8e93]">{trade.price.toFixed(5)}</span>
+                                <span className="text-[11px] text-[#5c5c5e]">→</span>
+                                <span className="text-[11px] text-white">{trade.currentPrice.toFixed(5)}</span>
                             </div>
                         </div>
-                    );
-                })}
+                        <div className="flex flex-col items-end space-y-1">
+                            {/* Profit */}
+                            <span className={`font-bold text-sm ${trade.profit >= 0 ? 'text-[#0a84ff]' : 'text-[#ff3b30]'}`}>
+                                {trade.profit > 0 ? '+' : ''}{trade.profit.toFixed(2)}
+                            </span>
+                            {/* Close Button or similar action? Keeping it minimal as per screenshots */}
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onCloseTrade(trade.id); }}
+                                className="text-[10px] bg-[#2c2c2e] px-2 py-0.5 rounded text-[#8e8e93] hover:text-white"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* Floating Add Button at Bottom Right (above Tabs) */}
+            <div className="absolute bottom-6 right-6 z-50">
+                <button
+                    onClick={onNewOrder}
+                    className="w-14 h-14 bg-[#0a84ff] rounded-full flex items-center justify-center shadow-lg shadow-blue-500/20 active:scale-95 transition-transform"
+                >
+                    <Plus size={30} className="text-white" strokeWidth={2.5} />
+                </button>
             </div>
         </div>
     );
