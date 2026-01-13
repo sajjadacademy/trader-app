@@ -11,6 +11,8 @@ import LoginPage from './pages/LoginPage'; // Use new Full Page Login
 import ChartsPage from './pages/ChartsPage';
 import NewOrderModal from './components/NewOrderModal';
 import Sidebar from './components/Sidebar';
+import AddSymbolPage from './pages/AddSymbolPage';
+import { ALL_SYMBOLS } from './data/symbols';
 import { api } from './api';
 
 const MobileApp = () => {
@@ -22,6 +24,12 @@ const MobileApp = () => {
     const [showAccounts, setShowAccounts] = useState(false);
     const [showNewOrder, setShowNewOrder] = useState(false);
     const [showSidebar, setShowSidebar] = useState(false);
+
+    // New UI State for Add Symbol
+    const [showAddSymbol, setShowAddSymbol] = useState(false);
+    // Initialize user symbols with some defaults (e.g. first 5)
+    // In a real app, this would come from the user profile or local storage
+    const [userSymbols, setUserSymbols] = useState(ALL_SYMBOLS.slice(0, 7));
 
     // Auth & Data State
     const [token, setToken] = useState(localStorage.getItem('token'));
@@ -127,6 +135,14 @@ const MobileApp = () => {
         }
     };
 
+    const handleAddSymbol = (symbolObj) => {
+        // Add if not already present
+        setUserSymbols(prev => {
+            if (prev.find(s => s.symbol === symbolObj.symbol)) return prev;
+            return [...prev, symbolObj];
+        });
+    };
+
     const toggleSidebar = () => setShowSidebar(true);
 
     const renderContent = () => {
@@ -143,8 +159,24 @@ const MobileApp = () => {
             );
         }
 
+        if (showAddSymbol) {
+            return (
+                <AddSymbolPage
+                    onBack={() => setShowAddSymbol(false)}
+                    onAddSymbol={handleAddSymbol}
+                    userSymbols={userSymbols}
+                />
+            );
+        }
+
         switch (activeTab) {
-            case 'quotes': return <QuotesPage onMenuClick={toggleSidebar} />;
+            case 'quotes': return (
+                <QuotesPage
+                    onMenuClick={toggleSidebar}
+                    userQuotes={userSymbols}
+                    onAddSymbolClick={() => setShowAddSymbol(true)}
+                />
+            );
             case 'charts': return <ChartsPage onMenuClick={toggleSidebar} />;
             case 'trade': return (
                 <TradePage

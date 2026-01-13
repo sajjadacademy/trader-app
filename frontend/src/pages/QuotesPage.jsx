@@ -1,48 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Pencil, Menu } from 'lucide-react';
 
-const QuotesPage = ({ onMenuClick }) => {
-    // Initial Seed Data for Simulation (30+ Pairs)
-    const initialQuotes = [
-        // Majors
-        { symbol: 'EURUSD', bid: 1.16367, ask: 1.16369, spread: 2, low: 1.16180, high: 1.16621, changePoint: -226, changePercent: -0.19, digits: 5 },
-        { symbol: 'GBPUSD', bid: 1.33991, ask: 1.34042, spread: 51, low: 1.33922, high: 1.34504, changePoint: -433, changePercent: -0.32, digits: 5 },
-        { symbol: 'USDJPY', bid: 149.501, ask: 149.532, spread: 31, low: 149.200, high: 149.800, changePoint: 105, changePercent: 0.67, digits: 3 },
-        { symbol: 'USDCHF', bid: 0.89098, ask: 0.89159, spread: 61, low: 0.88764, high: 0.89171, changePoint: 218, changePercent: 0.27, digits: 5 },
-        { symbol: 'AUDUSD', bid: 0.66683, ask: 0.66916, spread: 83, low: 0.66634, high: 0.67038, changePoint: -156, changePercent: -0.23, digits: 5 },
-        { symbol: 'USDCAD', bid: 1.36500, ask: 1.36530, spread: 30, low: 1.36200, high: 1.36800, changePoint: 50, changePercent: 0.04, digits: 5 },
-        { symbol: 'NZDUSD', bid: 0.57269, ask: 0.57359, spread: 90, low: 0.57108, high: 0.57530, changePoint: -253, changePercent: -0.44, digits: 5 },
+const QuotesPage = ({ onMenuClick, userQuotes, onAddSymbolClick }) => {
 
-        // Minors & Crosses
-        { symbol: 'EURGBP', bid: 0.86540, ask: 0.86560, spread: 20, low: 0.86400, high: 0.86700, changePoint: 12, changePercent: 0.05, digits: 5 },
-        { symbol: 'EURJPY', bid: 158.200, ask: 158.250, spread: 50, low: 157.800, high: 158.500, changePoint: 150, changePercent: 0.40, digits: 3 },
-        { symbol: 'GBPJPY', bid: 182.500, ask: 182.600, spread: 100, low: 181.900, high: 183.000, changePoint: -80, changePercent: -0.15, digits: 3 },
-        { symbol: 'AUDJPY', bid: 95.400, ask: 95.450, spread: 50, low: 95.000, high: 95.800, changePoint: 200, changePercent: 0.50, digits: 3 },
-        { symbol: 'CADJPY', bid: 109.100, ask: 109.150, spread: 50, low: 108.800, high: 109.500, changePoint: 50, changePercent: 0.12, digits: 3 },
-        { symbol: 'CHFJPY', bid: 165.300, ask: 165.400, spread: 100, low: 165.000, high: 166.000, changePoint: -150, changePercent: -0.35, digits: 3 },
+    // We maintain a local version of quotes to handle the high-frequency simulation updates
+    // while initializing from the passed props.
+    const [quotes, setQuotes] = useState(userQuotes || []);
 
-        // Exotics
-        { symbol: 'USDCNH', bid: 7.27298, ask: 7.27943, spread: 645, low: 7.25138, high: 7.29400, changePoint: -901, changePercent: -0.13, digits: 5 },
-        { symbol: 'USDRUB', bid: 92.505, ask: 95.645, spread: 3140, low: 91.455, high: 96.797, changePoint: -1384, changePercent: -1.75, digits: 3 },
-        { symbol: 'USDTRY', bid: 27.500, ask: 27.800, spread: 3000, low: 27.200, high: 28.100, changePoint: 5000, changePercent: 2.50, digits: 3 },
-        { symbol: 'USDZAR', bid: 18.900, ask: 18.950, spread: 500, low: 18.700, high: 19.100, changePoint: 2000, changePercent: 0.85, digits: 3 },
-        { symbol: 'USDMXN', bid: 17.500, ask: 17.550, spread: 500, low: 17.300, high: 17.700, changePoint: -400, changePercent: -0.25, digits: 3 },
+    // Sync with props when they change (e.g. new symbol added)
+    useEffect(() => {
+        if (userQuotes) {
+            // merge existing simulation state with new props to avoid jitter resets
+            setQuotes(prev => {
+                const newMap = new Map(userQuotes.map(q => [q.symbol, q]));
+                const prevMap = new Map(prev.map(q => [q.symbol, q]));
 
-        // Metals & Indices
-        { symbol: 'XAUUSD', bid: 1980.50, ask: 1981.10, spread: 60, low: 1970.00, high: 1990.00, changePoint: 1560, changePercent: 0.78, digits: 2 },
-        { symbol: 'XAGUSD', bid: 23.450, ask: 23.480, spread: 30, low: 23.100, high: 23.800, changePoint: -120, changePercent: -0.50, digits: 3 },
-        { symbol: 'US500', bid: 4350.50, ask: 4351.00, spread: 50, low: 4330.00, high: 4370.00, changePoint: 2500, changePercent: 0.55, digits: 2 },
-        { symbol: 'US30', bid: 33800.0, ask: 33805.0, spread: 500, low: 33600.0, high: 34000.0, changePoint: -15000, changePercent: -0.45, digits: 1 },
-        { symbol: 'DE40', bid: 15400.0, ask: 15405.0, spread: 500, low: 15300.0, high: 15500.0, changePoint: 8000, changePercent: 0.52, digits: 1 },
-
-        // Crypto
-        { symbol: 'BTCUSD', bid: 34500.0, ask: 34510.0, spread: 1000, low: 34000.0, high: 35000.0, changePoint: 25000, changePercent: 0.75, digits: 1 },
-        { symbol: 'ETHUSD', bid: 1850.50, ask: 1851.50, spread: 100, low: 1820.00, high: 1880.00, changePoint: -2500, changePercent: -1.35, digits: 2 },
-        { symbol: 'LTCUSD', bid: 65.40, ask: 65.50, spread: 10, low: 64.00, high: 67.00, changePoint: 120, changePercent: 1.80, digits: 2 },
-        { symbol: 'XRPUSD', bid: 0.55040, ask: 0.55090, spread: 50, low: 0.54000, high: 0.56000, changePoint: -150, changePercent: -2.10, digits: 5 },
-    ];
-
-    const [quotes, setQuotes] = useState(initialQuotes);
+                return userQuotes.map(q => {
+                    // preserve current simulated price if exists, else use default
+                    const existing = prevMap.get(q.symbol);
+                    if (existing) {
+                        return { ...q, ...existing };
+                    }
+                    return q;
+                });
+            });
+        }
+    }, [userQuotes]);
 
     // Simulation Engine
     useEffect(() => {
@@ -101,7 +84,7 @@ const QuotesPage = ({ onMenuClick }) => {
                     <h1 className="text-xl font-bold text-white">Quotes</h1>
                 </div>
                 <div className="flex items-center space-x-6">
-                    <button className="text-white"><Plus size={28} strokeWidth={1.5} /></button>
+                    <button onClick={onAddSymbolClick} className="text-white"><Plus size={28} strokeWidth={1.5} /></button>
                     <button className="text-white"><Pencil size={24} strokeWidth={1.5} /></button>
                 </div>
             </div>
