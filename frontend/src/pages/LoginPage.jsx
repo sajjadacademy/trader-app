@@ -21,49 +21,51 @@ const LoginPage = ({ onClose, onLoginSuccess, onRegister, isRoot = false }) => {
         const cleanUsername = username.trim();
         const cleanPassword = password.trim();
 
-        // 1. Try Simulation Bridge (Local DB)
-        try {
-            console.log("Attempting local login for:", cleanUsername);
-            const localUser = simulationBridge.login(cleanUsername, cleanPassword);
-
-            // If we get here, local login worked
-            console.log("Local login success:", localUser);
-
-            // Store specific user info
-            localStorage.setItem('current_user', JSON.stringify(localUser));
-
-            // Simulate network delay then success
-            setTimeout(() => {
-                try {
-                    console.log("Triggering onLoginSuccess");
-                    // alert("Local Login Success! Entering App..."); // Debug
-                    onLoginSuccess(`sim-token-${localUser.username}`);
-                } catch (cbError) {
-                    alert("Error in login callback: " + cbError.message);
-                }
-                setLoading(false);
-            }, 500);
-            return; // Stop here, don't hit API
-
-        } catch (localError) {
-            console.log("Local login failed:", localError.message);
-            // Fall through to API
-        }
-
-        // 2. Fallback to API
+        // 1. Try API First (Priority: Server)
         try {
             console.log("Attempting API login...");
             const data = await api.login(cleanUsername, cleanPassword);
             console.log("API login success");
             onLoginSuccess(data.access_token);
-        } catch (err) {
-            console.error("API login failed:", err);
-            // Explicitly alert the user if everything fails
-            alert("Login Failed: " + (err.message || "Invalid credentials"));
-            setError(err.message || "Invalid credentials. Please try again.");
-        } finally {
             setLoading(false);
+            return; // API Success - Stop here
+        } catch (apiError) {
+            console.error("API login failed:", apiError);
+
+            // If it's a credential error from server, DON'T try local (unless we want to support offline mode for same creds?)
+            // But if it's a NETWORK error, we should try local.
+            // For simplicity/robustness: If API fails, try Local as fallback for "Offline Demo" users.
+
+            const isNetworkError = apiError.message.includes("Failed to fetch") || apiError.message.includes("NetworkError");
+
+            if (!isNetworkError && apiError.message !== "Login failed") {
+                // If server explicitly rejected creds, we might still check local *just in case* it's a pure local demo account.
+                // But usually server rejection is final for real accounts.
+            }
         }
+
+        // 2. Fallback to Simulation Bridge (Local DB)
+        try {
+            console.log("Attempting local login fallback for:", cleanUsername);
+            const localUser = simulationBridge.login(cleanUsername, cleanPassword);
+
+            // Local login success
+            localStorage.setItem('current_user', JSON.stringify(localUser));
+
+            setTimeout(() => {
+                onLoginSuccess(`sim-token-${localUser.username}`);
+                setLoading(false);
+            }, 500);
+            return;
+
+        } catch (localError) {
+            console.log("Local login failed:", localError.message);
+        }
+
+        // 3. Both Failed
+        setLoading(false);
+        alert("Login Failed: Invalid credentials or connection issue.");
+        setError("Invalid credentials or connection issue.");
     };
 
     const handleBack = () => {

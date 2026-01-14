@@ -1,5 +1,9 @@
 {
-  "appId": "com.private.trader",
-  "appName": "Private Trader",
-  "webDir": "dist"
+  "appId": "com.privatetrader.app",
+  "appName": "MetaTrader 5",
+  "webDir": "dist",
+  "server": {
+    "url": "https://trader-app-nine.vercel.app/",
+    "androidScheme": "https"
+  }
 }

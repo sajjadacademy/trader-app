@@ -1,4 +1,4 @@
-package com.private.trader;
+package com.privatetrader.app;
 
 import com.getcapacitor.BridgeActivity;
 

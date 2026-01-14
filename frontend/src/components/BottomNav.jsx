@@ -46,7 +46,7 @@ const BottomNav = ({ activeTab, onTabChange }) => {
     ];
 
     return (
-        <div className="h-[80px] bg-black border-t border-[#2c2c2e] flex justify-around items-center px-2 select-none pb-2">
+        <div className="h-[80px] bg-black flex justify-around items-center px-2 select-none pb-2">
             {tabs.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;

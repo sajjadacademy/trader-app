@@ -19,33 +19,58 @@ const RegistrationForm = ({ onClose, onLoginSuccess }) => {
     const handleRegister = async () => {
         setLoading(true);
         try {
-            // Register in Simulation Bridge (Local DB)
-            try {
-                simulationBridge.createUser(
-                    formData.username,
-                    formData.password,
-                    formData.balance,
-                    false // not admin
-                );
-            } catch (err) {
-                // If user exists, maybe we just proceed or warn
-                if (err.message === "User already exists") {
-                    alert("User ID already taken locally, but proceeding...");
-                }
-            }
+            // ENFORCE SERVER REGISTRATION FOR REAL ACCOUNTS
+            if (formData.account_type === 'real') {
+                try {
+                    await api.register({
+                        username: formData.username,
+                        password: formData.password,
+                        full_name: formData.full_name,
+                        broker: formData.broker,
+                        account_type: formData.account_type,
+                        balance: parseFloat(formData.balance)
+                    });
+                    // If success, sync to local for offline viewing (optional but good)
+                    try {
+                        simulationBridge.createUser(
+                            formData.username,
+                            formData.password,
+                            formData.balance,
+                            false,
+                            formData.full_name,
+                            formData.broker,
+                            'real'
+                        );
+                    } catch (e) { /* ignore local dupes */ }
 
-            // Also try Server Register (Optional/Best Effort)
-            try {
-                await api.register({
+                } catch (serverError) {
+                    throw new Error("Server Registration Failed: " + (serverError.message || "Connection refused"));
+                }
+            } else {
+                // DEMO ACCOUNTS - LOCAL FIRST (OFFLINE OK)
+                try {
+                    simulationBridge.createUser(
+                        formData.username,
+                        formData.password,
+                        formData.balance,
+                        false,
+                        formData.full_name,
+                        formData.broker,
+                        'demo'
+                    );
+                } catch (err) {
+                    if (err.message !== "User already exists") throw err;
+                }
+
+                // Best effort sync for demo
+                api.register({
                     username: formData.username,
                     password: formData.password,
                     full_name: formData.full_name,
                     broker: formData.broker,
                     account_type: formData.account_type,
                     balance: parseFloat(formData.balance)
-                });
-            } catch (ignore) {
-                console.log("Server registration skipped or failed");
+                }).catch(() => console.log("Offline demo registration"));
             }
 
             setStep('success');
