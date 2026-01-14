@@ -15,6 +15,7 @@ import NewOrderPage from './pages/NewOrderPage';
 import OrderConfirmation from './components/OrderConfirmation';
 import { ALL_SYMBOLS } from './data/symbols';
 import { api } from './api';
+import { simulationBridge } from './utils/simulationBridge';
 
 const MobileApp = () => {
     // UI State
@@ -27,8 +28,6 @@ const MobileApp = () => {
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [lastTrade, setLastTrade] = useState(null);
     const [showSidebar, setShowSidebar] = useState(false);
-
-    // New UI State for Add Symbol
     const [showAddSymbol, setShowAddSymbol] = useState(false);
 
     // User symbols
@@ -39,7 +38,10 @@ const MobileApp = () => {
     const [user, setUser] = useState(null);
     const [activeTrades, setActiveTrades] = useState([]);
     const [historyTrades, setHistoryTrades] = useState([]);
-    const [balance, setBalance] = useState(100000.00);
+
+    const [serverBalance, setServerBalance] = useState(100000.00);
+    const [localPL, setLocalPL] = useState(0);
+    const balance = serverBalance + localPL;
 
     // Initial Load - Check for registration
     useEffect(() => {
@@ -52,45 +54,81 @@ const MobileApp = () => {
         return () => clearTimeout(timer);
     }, [token]);
 
-    // Polling System
+    // Polling / Simulation Sync
     useEffect(() => {
-        if (!token) return;
+        const syncSimulatedTrades = () => {
+            const allBridgeTrades = simulationBridge.getTrades();
+            const activeBridge = allBridgeTrades.filter(t => t.status === 'OPEN');
+            const historyBridge = allBridgeTrades.filter(t => t.status === 'CLOSED');
 
-        const fetchData = async () => {
-            try {
-                const allTrades = await api.getTrades(token);
-                // Augment trades with simulation data
-                const active = allTrades.filter(t => t.status === 'OPEN').map(t => {
-                    const currentPrice = t.type === 'buy' ? 1.08510 : 1.08490; // Mock current price fallback
-                    const multiplier = t.type === 'buy' ? 1 : -1;
-                    const profit = (currentPrice - t.entry_price) * t.volume * multiplier * 100000;
+            // Calculate current price for each active trade based on Target Profit
+            const processedActive = activeBridge.map(t => {
+                let currentPrice = t.price;
+                const multiplier = t.type === 'buy' ? 1 : -1;
 
-                    return {
-                        ...t,
-                        currentPrice,
-                        profit: t.forced_outcome === 'WIN' ? 50 : (t.forced_outcome === 'LOSS' ? -50 : profit)
-                    };
-                });
-                const history = allTrades.filter(t => t.status === 'CLOSED');
+                if (t.targetProfit !== undefined && t.targetProfit !== null) {
+                    const diff = t.targetProfit / (t.volume * 100000 * multiplier);
+                    const targetPrice = t.entry_price + diff;
+                    // Matching TradePage logic: +/- 0.0006 noise (approx +/- $0.60 on 0.01 lot)
+                    const noise = (Math.random() - 0.5) * 0.0012;
+                    currentPrice = targetPrice + noise;
+                } else {
+                    const noise = (Math.random() - 0.5) * 0.0002;
+                    currentPrice = t.entry_price + noise;
+                }
 
-                setActiveTrades(active);
-                setHistoryTrades(history);
+                const profit = (currentPrice - t.entry_price) * t.volume * multiplier * 100000;
+                return { ...t, currentPrice, profit };
+            });
 
-                const userData = await api.getMe(token);
-                setBalance(userData.balance);
-                setUser(userData);
+            setActiveTrades(processedActive);
+            setHistoryTrades(historyBridge);
+        };
 
-            } catch (error) {
-                console.error("Polling error", error);
-                if (error.message.includes("401")) {
-                    setToken(null);
-                    localStorage.removeItem('token');
+        const interval = setInterval(syncSimulatedTrades, 1000);
+
+        // Listen to storage events
+        const handleStorage = () => syncSimulatedTrades();
+        window.addEventListener('storage_update', handleStorage);
+        window.addEventListener('storage', handleStorage);
+
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('storage_update', handleStorage);
+            window.removeEventListener('storage', handleStorage);
+        };
+    }, []);
+
+    // User Data Polling (Balance Sync)
+    useEffect(() => {
+        const fetchUserData = async () => {
+            if (!token) return;
+
+            // Authenticated User Logic
+            const storedUser = localStorage.getItem('current_user');
+            const localUser = storedUser ? JSON.parse(storedUser) : null;
+
+            if (localUser && token.startsWith('sim-token')) {
+                // We are in Simulated Mode -> Fetch from Bridge
+                const freshUser = simulationBridge.getUser(localUser.username);
+                if (freshUser) {
+                    setServerBalance(freshUser.balance);
+                    setUser(freshUser);
+                }
+            } else {
+                // Standard API Mode -> Fetch from Server
+                try {
+                    const userData = await api.getMe(token);
+                    setServerBalance(userData.balance);
+                    setUser(userData);
+                } catch (e) {
+                    // console.warn("API User Fetch Error", e);
                 }
             }
         };
 
-        const interval = setInterval(fetchData, 2000);
-        fetchData();
+        const interval = setInterval(fetchUserData, 2000);
+        fetchUserData(); // initial call
 
         return () => clearInterval(interval);
     }, [token]);
@@ -110,29 +148,26 @@ const MobileApp = () => {
     };
 
     const handlePlaceOrder = async (type, volume, price) => {
-        if (!token) return;
-
         try {
-            // Mock trade ID since API might not return it instantly in this demo text
             const mockId = Math.floor(Math.random() * 10000000000);
+            const entryPrice = price || (type === 'buy' ? 1.08500 : 1.08505);
 
-            await api.placeTrade(token, {
+            const newTrade = {
+                id: mockId,
                 symbol: 'EURUSD',
                 type: type,
                 volume: volume,
-                entry_price: price || (type === 'buy' ? 1.08500 : 1.08505),
-                sl: 0,
-                tp: 0
-            });
+                entry_price: entryPrice,
+                price: entryPrice,
+                currentPrice: entryPrice,
+                open_time: new Date().toISOString(),
+                profit: 0,
+                status: 'OPEN'
+            };
 
-            setLastTrade({
-                symbol: 'EURUSD',
-                type,
-                volume,
-                price: price || (type === 'buy' ? 1.08500 : 1.08505),
-                id: `#${mockId}`
-            });
+            simulationBridge.addTrade(newTrade);
 
+            setLastTrade({ ...newTrade, id: `#${mockId}` });
             setShowNewOrder(false);
             setShowConfirmation(true);
         } catch (error) {
@@ -141,13 +176,47 @@ const MobileApp = () => {
     };
 
     const handleCloseTrade = async (tradeId, price) => {
-        if (!token) return;
-        try {
-            await api.closeTrade(token, tradeId, price);
-            // Optimistic update
-            setActiveTrades(prev => prev.filter(t => t.id !== tradeId));
-        } catch (error) {
-            alert("Failed to close trade: " + error.message);
+        const trade = activeTrades.find(t => t.id === tradeId);
+        if (!trade) return;
+
+        let closePrice = price || trade.currentPrice || trade.price;
+        let profit = 0;
+        const multiplier = trade.type === 'buy' ? 1 : -1;
+
+        // Check for Admin Forced Outcome
+        if (trade.targetProfit !== undefined && trade.targetProfit !== null) {
+            // FORCE EXACT PROFIT
+            profit = parseFloat(trade.targetProfit);
+            // Back-calculate the exact closing price needed for this profit
+            // Profit = (Close - Entry) * Vol * 100000 * Multiplier
+            // Close = Entry + (Profit / (Vol * 100000 * Multiplier))
+            const diff = profit / (trade.volume * 100000 * multiplier);
+            closePrice = trade.entry_price + diff;
+        } else {
+            // Standard Calculation based on simulated price
+            profit = (closePrice - trade.entry_price) * trade.volume * multiplier * 100000;
+        }
+
+        const closeInfo = {
+            close_price: closePrice,
+            profit: profit
+        };
+
+        simulationBridge.closeTrade(tradeId, closeInfo);
+        setLocalPL(prev => prev + profit);
+
+        // Also update local user balance persistently in bridge?
+        // Ideally yes, if we want it to show in Admin
+        const storedUser = localStorage.getItem('current_user');
+        if (storedUser) {
+            const localUser = JSON.parse(storedUser);
+            simulationBridge.updateUserBalance(localUser.username, profit);
+            // We don't need setLocalPL necessarily if we update bridge and poll bridge,
+            // but setLocalPL gives instant feedback until poll happens.
+        }
+
+        if (token && !token.startsWith('sim-token')) {
+            api.closeTrade(token, tradeId, closePrice).catch(e => console.warn("Backend sync failed"));
         }
     };
 
@@ -187,18 +256,24 @@ const MobileApp = () => {
                 <TradePage
                     onNewOrder={() => setShowNewOrder(true)}
                     activeTrades={activeTrades}
-                    balance={balance} // Pass balance for generic stats
+                    balance={balance}
                     onMenuClick={toggleSidebar}
                     onCloseTrade={handleCloseTrade}
+                    onOpenChart={() => setActiveTab('charts')}
                 />
             );
-            case 'history': return <HistoryPage historyTrades={historyTrades} onMenuClick={toggleSidebar} />;
+            case 'history': return (
+                <HistoryPage
+                    historyTrades={historyTrades}
+                    onMenuClick={toggleSidebar}
+                    balance={balance}
+                />
+            );
             case 'messages': return <MessagesPage onMenuClick={toggleSidebar} />;
             default: return <QuotesPage onMenuClick={toggleSidebar} userQuotes={userSymbols} />;
         }
     };
 
-    // Authentication Guard
     if (!token) {
         if (showRegistration) {
             return <RegistrationForm onClose={() => setShowRegistration(false)} onLoginSuccess={handleLoginSuccess} />;
@@ -213,7 +288,6 @@ const MobileApp = () => {
         );
     }
 
-    // Full screen overlays that hide bottom menu
     if (showNewOrder) {
         return (
             <NewOrderPage

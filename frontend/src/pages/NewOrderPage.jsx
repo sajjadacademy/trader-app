@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, RefreshCw, CircleDollarSign } from 'lucide-react';
+import { ArrowLeft, RefreshCw } from 'lucide-react';
 
 const NewOrderPage = ({ symbol = 'EURUSD', onClose, onPlaceOrder, currentBid = 1.16413, currentAsk = 1.16416 }) => {
 
@@ -93,10 +93,10 @@ const NewOrderPage = ({ symbol = 'EURUSD', onClose, onPlaceOrder, currentBid = 1
                     <h1 className="text-xl font-bold text-white tracking-wide uppercase">{symbol}</h1>
                     <span className="text-[12px] text-[#8e8e93] mt-0.5">Euro vs US Dollar</span>
                 </div>
-                {/* Right side icons stuck together */}
-                <div className="flex items-center space-x-4">
-                    <CircleDollarSign size={22} className="text-white" />
-                    <RefreshCw size={22} className="text-white" />
+                {/* Right side icons: $ inside circular arrows */}
+                <div className="flex items-center justify-center w-8 h-8 relative">
+                    <RefreshCw size={26} className="text-white" strokeWidth={1.5} />
+                    <span className="absolute text-[12px] font-bold text-white pt-[1px]">$</span>
                 </div>
             </div>
 

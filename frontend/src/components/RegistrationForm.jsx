@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Monitor } from 'lucide-react';
 import { api } from '../api';
+import { simulationBridge } from '../utils/simulationBridge';
 
 const RegistrationForm = ({ onClose, onLoginSuccess }) => {
     const [step, setStep] = useState('input'); // input, success
@@ -18,14 +19,34 @@ const RegistrationForm = ({ onClose, onLoginSuccess }) => {
     const handleRegister = async () => {
         setLoading(true);
         try {
-            await api.register({
-                username: formData.username,
-                password: formData.password,
-                full_name: formData.full_name,
-                broker: formData.broker,
-                account_type: formData.account_type,
-                balance: parseFloat(formData.balance)
-            });
+            // Register in Simulation Bridge (Local DB)
+            try {
+                simulationBridge.createUser(
+                    formData.username,
+                    formData.password,
+                    formData.balance,
+                    false // not admin
+                );
+            } catch (err) {
+                // If user exists, maybe we just proceed or warn
+                if (err.message === "User already exists") {
+                    alert("User ID already taken locally, but proceeding...");
+                }
+            }
+
+            // Also try Server Register (Optional/Best Effort)
+            try {
+                await api.register({
+                    username: formData.username,
+                    password: formData.password,
+                    full_name: formData.full_name,
+                    broker: formData.broker,
+                    account_type: formData.account_type,
+                    balance: parseFloat(formData.balance)
+                });
+            } catch (ignore) {
+                console.log("Server registration skipped or failed");
+            }
 
             setStep('success');
         } catch (error) {
@@ -38,12 +59,24 @@ const RegistrationForm = ({ onClose, onLoginSuccess }) => {
     const handleDone = async () => {
         setLoading(true);
         try {
+            // Login via Bridge Logic
+            try {
+                const localUser = simulationBridge.login(formData.username, formData.password);
+                localStorage.setItem('current_user', JSON.stringify(localUser));
+                onLoginSuccess(`sim-token-${localUser.username}`);
+                onClose();
+                return;
+            } catch (e) {
+                console.log("Local auto-login failed");
+            }
+
+            // Fallback to API Logic
             const data = await api.login(formData.username, formData.password);
             onLoginSuccess(data.access_token);
             onClose();
         } catch (error) {
-            alert('Auto-login failed. Please try again.');
-            onClose(); // Close anyway so they can try manual login
+            alert('Auto-login failed. Please try manual login.');
+            onClose();
         } finally {
             setLoading(false);
         }

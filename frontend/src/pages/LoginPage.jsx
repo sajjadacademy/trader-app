@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { ArrowLeft, GraduationCap, TrendingUp, ChevronDown, Check } from 'lucide-react';
 import { api } from '../api';
+import { simulationBridge } from '../utils/simulationBridge';
 
 const LoginPage = ({ onClose, onLoginSuccess, onRegister, isRoot = false }) => {
     // view: 'landing' | 'login'
-    // If isRoot is false (modal mode), 'landing' might be skipped or we default to 'login'? 
-    // Let's assume 'landing' is the main entry.
     const [view, setView] = useState('landing');
 
     const [username, setUsername] = useState('');
@@ -19,10 +18,48 @@ const LoginPage = ({ onClose, onLoginSuccess, onRegister, isRoot = false }) => {
         setLoading(true);
         setError(null);
 
+        const cleanUsername = username.trim();
+        const cleanPassword = password.trim();
+
+        // 1. Try Simulation Bridge (Local DB)
         try {
-            const data = await api.login(username, password);
+            console.log("Attempting local login for:", cleanUsername);
+            const localUser = simulationBridge.login(cleanUsername, cleanPassword);
+
+            // If we get here, local login worked
+            console.log("Local login success:", localUser);
+
+            // Store specific user info
+            localStorage.setItem('current_user', JSON.stringify(localUser));
+
+            // Simulate network delay then success
+            setTimeout(() => {
+                try {
+                    console.log("Triggering onLoginSuccess");
+                    // alert("Local Login Success! Entering App..."); // Debug
+                    onLoginSuccess(`sim-token-${localUser.username}`);
+                } catch (cbError) {
+                    alert("Error in login callback: " + cbError.message);
+                }
+                setLoading(false);
+            }, 500);
+            return; // Stop here, don't hit API
+
+        } catch (localError) {
+            console.log("Local login failed:", localError.message);
+            // Fall through to API
+        }
+
+        // 2. Fallback to API
+        try {
+            console.log("Attempting API login...");
+            const data = await api.login(cleanUsername, cleanPassword);
+            console.log("API login success");
             onLoginSuccess(data.access_token);
         } catch (err) {
+            console.error("API login failed:", err);
+            // Explicitly alert the user if everything fails
+            alert("Login Failed: " + (err.message || "Invalid credentials"));
             setError(err.message || "Invalid credentials. Please try again.");
         } finally {
             setLoading(false);

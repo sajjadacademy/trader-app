@@ -40,7 +40,10 @@ export const api = {
             method: 'POST',
             body: formData, // fetch automatically sets Content-Type to application/x-www-form-urlencoded
         });
-        if (!response.ok) throw new Error('Login failed');
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.detail || 'Login failed');
+        }
         return response.json(); // Returns { access_token, token_type }
     },
 

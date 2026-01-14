@@ -1,17 +1,52 @@
 import React from 'react';
-import { ArrowUpDown, BarChart2, TrendingUp, History, MessageSquare } from 'lucide-react';
+import { ArrowUpDown, CandlestickChart, TrendingUp, History, MessagesSquare } from 'lucide-react';
+
+// Custom SVG for Charts (Two Sharp Candlesticks)
+const CustomChartsIcon = ({ size, className, strokeWidth }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+        {/* Left Candle (Lower) - Sharp corners */}
+        <path d="M8 11v4" /> {/* Center line check - wait, wicks are usually center. 
+            Rect x=6, width=4 -> center is 8. 
+        */}
+        <path d="M8 8v3" />   {/* Top Wick */}
+        <path d="M8 17v3" />  {/* Bottom Wick */}
+        <rect x="6" y="11" width="4" height="6" rx="0.5" />
+
+        {/* Right Candle (Higher) */}
+        <path d="M16 3v3" />   {/* Top Wick */}
+        <path d="M16 12v3" />  {/* Bottom Wick */}
+        <rect x="14" y="6" width="4" height="6" rx="0.5" />
+    </svg>
+);
+
+// Custom SVG for Trade (Zigzag Line with White Endpoints)
+const CustomTradeIcon = ({ size, className, strokeWidth, isActive }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+        {/* Zigzag Line */}
+        <polyline
+            points="3 17 9 11 13 15 21 6"
+            stroke={isActive ? "#0a84ff" : "currentColor"}
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        />
+        {/* Small White Circles at First and Last Point (with stroke to see them if bg is white) */}
+        <circle cx="3" cy="17" r="2" fill="white" stroke={isActive ? "#0a84ff" : "currentColor"} strokeWidth="1.5" />
+        <circle cx="21" cy="6" r="2" fill="white" stroke={isActive ? "#0a84ff" : "currentColor"} strokeWidth="1.5" />
+    </svg>
+);
 
 const BottomNav = ({ activeTab, onTabChange }) => {
     const tabs = [
         { id: 'quotes', label: 'Quotes', icon: ArrowUpDown },
-        { id: 'charts', label: 'Charts', icon: BarChart2 }, // Approximating candlesticks
-        { id: 'trade', label: 'Trade', icon: TrendingUp },
+        { id: 'charts', label: 'Charts', icon: CustomChartsIcon },
+        { id: 'trade', label: 'Trade', icon: CustomTradeIcon },
         { id: 'history', label: 'History', icon: History },
-        { id: 'messages', label: 'Messages', icon: MessageSquare }, // Or MessagesSquare if available
+        { id: 'messages', label: 'Messages', icon: MessagesSquare },
     ];
 
     return (
-        <div className="h-[60px] bg-black border-t border-[#1c1c1e] flex justify-around items-center px-2 select-none pb-1">
+        <div className="h-[60px] bg-black border-t border-[#2c2c2e] flex justify-around items-center px-2 select-none pb-1">
             {tabs.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
@@ -21,17 +56,18 @@ const BottomNav = ({ activeTab, onTabChange }) => {
                         onClick={() => onTabChange(tab.id)}
                         className={`flex flex-col items-center justify-center w-full cursor-pointer transition-all duration-200 group`}
                     >
-                        {/* Pill Container */}
-                        <div className={`flex flex-col items-center justify-center px-5 py-1 rounded-full transition-colors duration-200 ${isActive ? 'bg-[#d1e3fa]' : 'bg-transparent'}`}>
-                            {/* Icon: Active=Blue, Inactive=Gray */}
+                        {/* Pill Container: White background for active state */}
+                        <div className={`flex flex-col items-center justify-center px-5 py-1 rounded-full transition-colors duration-200 ${isActive ? 'bg-white' : 'bg-transparent'}`}>
+                            {/* Icon: Active=Blue(Light), Inactive=Gray */}
                             <Icon
                                 size={24}
                                 strokeWidth={isActive ? 2.5 : 2}
-                                className={isActive ? "text-[#007aff]" : "text-[#8e8e93] group-hover:text-white"}
+                                isActive={isActive}
+                                className={isActive ? "text-[#0a84ff]" : "text-[#8e8e93] group-hover:text-gray-400"}
                             />
                         </div>
-                        {/* Label: Active=Blue, Inactive=White/Gray */}
-                        <span className={`text-[10px] font-bold mt-1 ${isActive ? 'text-[#007aff]' : 'text-white'}`}>{tab.label}</span>
+                        {/* Label: Active=Blue, Inactive=Gray */}
+                        <span className={`text-[10px] font-bold mt-1 ${isActive ? 'text-[#0a84ff]' : 'text-[#8e8e93]'}`}>{tab.label}</span>
                     </div>
                 );
             })}
