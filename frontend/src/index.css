@@ -16,7 +16,12 @@ body {
   display: none;
 }
 
-/* Strict Navbar Override */
+/* Strict Navbar Override - Nuclear Option */
 .nav-pill-active {
   background-color: #FFFFFF !important;
+  opacity: 1 !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  mix-blend-mode: normal !important;
+  z-index: 10 !important;
 }
