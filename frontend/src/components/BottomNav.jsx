@@ -46,7 +46,7 @@ const BottomNav = ({ activeTab, onTabChange }) => {
     ];
 
     return (
-        <div className="h-[80px] bg-black flex justify-around items-center px-2 select-none pb-2">
+        <div className="h-[80px] bg-black flex justify-between items-center px-1 select-none pb-2">
             {tabs.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
@@ -54,20 +54,23 @@ const BottomNav = ({ activeTab, onTabChange }) => {
                     <div
                         key={tab.id}
                         onClick={() => onTabChange(tab.id)}
-                        className={`flex flex-col items-center justify-center w-full cursor-pointer transition-all duration-200 group`}
+                        className={`flex-1 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 group`}
                     >
-                        {/* Pill Container: White background for active state - Slightly larger padding */}
-                        <div className={`flex flex-col items-center justify-center px-6 py-1.5 rounded-full transition-colors duration-200 ${isActive ? 'bg-white' : 'bg-transparent'}`}>
+                        {/* Pill Container: White background for active state - Reduced padding to prevent cutoff */}
+                        <div
+                            className={`flex flex-col items-center justify-center px-3 py-1.5 rounded-full transition-colors duration-200`}
+                            style={{ backgroundColor: isActive ? '#FFFFFF' : 'transparent' }}
+                        >
                             {/* Icon: Active=Blue(Light), Inactive=Gray */}
                             <Icon
-                                size={28}
+                                size={26} // Slightly smaller icon to help fit
                                 strokeWidth={isActive ? 2.5 : 2}
                                 isActive={isActive}
                                 className={isActive ? "text-[#0a84ff]" : "text-[#8e8e93] group-hover:text-gray-400"}
                             />
                         </div>
                         {/* Label: Active=Blue, Inactive=Gray */}
-                        <span className={`text-xs font-bold mt-1.5 ${isActive ? 'text-[#0a84ff]' : 'text-[#8e8e93]'}`}>{tab.label}</span>
+                        <span className={`text-[10px] font-bold mt-1.5 ${isActive ? 'text-[#0a84ff]' : 'text-[#8e8e93]'}`}>{tab.label}</span>
                     </div>
                 );
             })}
