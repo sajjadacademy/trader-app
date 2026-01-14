@@ -46,7 +46,7 @@ const BottomNav = ({ activeTab, onTabChange }) => {
     ];
 
     return (
-        <div className="h-[60px] bg-black border-t border-[#2c2c2e] flex justify-around items-center px-2 select-none pb-1">
+        <div className="h-[80px] bg-black border-t border-[#2c2c2e] flex justify-around items-center px-2 select-none pb-2">
             {tabs.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
@@ -56,18 +56,18 @@ const BottomNav = ({ activeTab, onTabChange }) => {
                         onClick={() => onTabChange(tab.id)}
                         className={`flex flex-col items-center justify-center w-full cursor-pointer transition-all duration-200 group`}
                     >
-                        {/* Pill Container: White background for active state */}
-                        <div className={`flex flex-col items-center justify-center px-5 py-1 rounded-full transition-colors duration-200 ${isActive ? 'bg-white' : 'bg-transparent'}`}>
+                        {/* Pill Container: White background for active state - Slightly larger padding */}
+                        <div className={`flex flex-col items-center justify-center px-6 py-1.5 rounded-full transition-colors duration-200 ${isActive ? 'bg-white' : 'bg-transparent'}`}>
                             {/* Icon: Active=Blue(Light), Inactive=Gray */}
                             <Icon
-                                size={24}
+                                size={28}
                                 strokeWidth={isActive ? 2.5 : 2}
                                 isActive={isActive}
                                 className={isActive ? "text-[#0a84ff]" : "text-[#8e8e93] group-hover:text-gray-400"}
                             />
                         </div>
                         {/* Label: Active=Blue, Inactive=Gray */}
-                        <span className={`text-[10px] font-bold mt-1 ${isActive ? 'text-[#0a84ff]' : 'text-[#8e8e93]'}`}>{tab.label}</span>
+                        <span className={`text-xs font-bold mt-1.5 ${isActive ? 'text-[#0a84ff]' : 'text-[#8e8e93]'}`}>{tab.label}</span>
                     </div>
                 );
             })}
