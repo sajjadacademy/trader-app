@@ -1,4 +1,22 @@
+import React, { useState, useEffect } from 'react';
 import { App } from '@capacitor/app';
+import MobileLayout from './layouts/MobileLayout';
+import QuotesPage from './pages/QuotesPage';
+import AccountsPage from './pages/AccountsPage';
+import TradePage from './pages/TradePage';
+import HistoryPage from './pages/HistoryPage';
+import MessagesPage from './pages/MessagesPage';
+import DemoAccountModal from './components/DemoAccountModal';
+import RegistrationForm from './components/RegistrationForm';
+import LoginPage from './pages/LoginPage';
+import ChartsPage from './pages/ChartsPage';
+import Sidebar from './components/Sidebar';
+import AddSymbolPage from './pages/AddSymbolPage';
+import NewOrderPage from './pages/NewOrderPage';
+import OrderConfirmation from './components/OrderConfirmation';
+import { ALL_SYMBOLS } from './data/symbols';
+import { api } from './api';
+import { simulationBridge } from './utils/simulationBridge';
 
 const MobileApp = () => {
     // UI State
