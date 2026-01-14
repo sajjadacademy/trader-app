@@ -46,13 +46,13 @@ const OrderConfirmation = ({ trade, onDone }) => {
                             {trade.type === 'buy' ? 'BUY' : 'SELL'}
                         </span>
                         <span className="text-white font-bold text-sm tracking-wide">
-                            {trade.volume.toFixed(2)} / {trade.volume.toFixed(2)}
+                            {(trade.volume || 0).toFixed(2)} / {(trade.volume || 0).toFixed(2)}
                         </span>
                     </div>
 
                     {/* Line 2: Symbol at Price */}
                     <div className="text-[#8e8e93] text-[15px] font-medium">
-                        {trade.symbol} at {trade.price.toFixed(5)}
+                        {trade.symbol} at {(trade.price || trade.entry_price || 0).toFixed(5)}
                     </div>
 
                     {/* Line 3: ID */}

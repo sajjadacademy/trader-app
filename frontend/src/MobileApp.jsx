@@ -202,6 +202,7 @@ const MobileApp = () => {
                 // Use the server ID and data
                 const newTrade = {
                     ...serverTrade,
+                    price: entryPrice, // Ensure price is set for UI
                     currentPrice: entryPrice, // Initialize
                     profit: 0,
                     status: 'OPEN'
