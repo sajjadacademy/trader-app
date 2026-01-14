@@ -79,39 +79,77 @@ const MobileApp = () => {
 
     // Polling / Simulation Sync
     useEffect(() => {
-        const syncSimulatedTrades = () => {
-            const allBridgeTrades = simulationBridge.getTrades();
-            const activeBridge = allBridgeTrades.filter(t => t.status === 'OPEN');
-            const historyBridge = allBridgeTrades.filter(t => t.status === 'CLOSED');
+        const syncTrades = async () => {
+            if (token && !token.startsWith('sim-token')) {
+                // CLOUD API MODE
+                try {
+                    const serverTrades = await api.getTrades(token);
+                    // Server trades come as [ {id, symbol, type, ...} ]
+                    // We need to process them for live price/profit calculation just like simulation
+                    // For now, we assume server handles PL or we calculate it locally?
+                    // Let's calculated PL locally for smooth animation
 
-            // Calculate current price for each active trade based on Target Profit
-            const processedActive = activeBridge.map(t => {
-                let currentPrice = t.price;
-                const multiplier = t.type === 'buy' ? 1 : -1;
+                    const processed = serverTrades.map(t => {
+                        const currentPrice = t.currentPrice || t.price || t.entry_price; // You might need a live price feed here
 
-                if (t.targetProfit !== undefined && t.targetProfit !== null) {
-                    const diff = t.targetProfit / (t.volume * 100000 * multiplier);
-                    const targetPrice = t.entry_price + diff;
-                    // Matching TradePage logic: +/- 0.0006 noise (approx +/- $0.60 on 0.01 lot)
-                    const noise = (Math.random() - 0.5) * 0.0012;
-                    currentPrice = targetPrice + noise;
-                } else {
-                    const noise = (Math.random() - 0.5) * 0.0002;
-                    currentPrice = t.entry_price + noise;
+                        // Since we don't have a live socket yet, let's simulate price noise on client
+                        // so it feels 'alive' even with static server data
+                        const noise = (Math.random() - 0.5) * 0.0002;
+                        const animatedPrice = currentPrice + noise;
+
+                        // Calculate Profit
+                        const multiplier = t.type === 'buy' ? 1 : -1;
+                        const profit = (animatedPrice - t.entry_price) * t.volume * multiplier * 100000;
+
+                        return { ...t, currentPrice: animatedPrice, profit };
+                    });
+
+                    // Filter Open/Closed
+                    const active = processed.filter(t => t.status !== 'CLOSED'); // Assuming server uses 'CLOSED'
+                    const history = processed.filter(t => t.status === 'CLOSED');
+
+                    setActiveTrades(active);
+                    setHistoryTrades(history);
+
+                } catch (e) {
+                    console.warn("Sync failed", e);
                 }
+            } else {
+                // LOCAL SIMULATION MODE
+                const allBridgeTrades = simulationBridge.getTrades();
+                const activeBridge = allBridgeTrades.filter(t => t.status === 'OPEN');
+                const historyBridge = allBridgeTrades.filter(t => t.status === 'CLOSED');
 
-                const profit = (currentPrice - t.entry_price) * t.volume * multiplier * 100000;
-                return { ...t, currentPrice, profit };
-            });
+                // Calculate current price for each active trade based on Target Profit
+                const processedActive = activeBridge.map(t => {
+                    let currentPrice = t.price;
+                    const multiplier = t.type === 'buy' ? 1 : -1;
 
-            setActiveTrades(processedActive);
-            setHistoryTrades(historyBridge);
+                    if (t.targetProfit !== undefined && t.targetProfit !== null) {
+                        const diff = t.targetProfit / (t.volume * 100000 * multiplier);
+                        const targetPrice = t.entry_price + diff;
+                        // Matching TradePage logic: +/- 0.0006 noise
+                        const noise = (Math.random() - 0.5) * 0.0012;
+                        currentPrice = targetPrice + noise;
+                    } else {
+                        const noise = (Math.random() - 0.5) * 0.0002;
+                        currentPrice = t.entry_price + noise;
+                    }
+
+                    const profit = (currentPrice - t.entry_price) * t.volume * multiplier * 100000;
+                    return { ...t, currentPrice, profit };
+                });
+
+                setActiveTrades(processedActive);
+                setHistoryTrades(historyBridge);
+            }
         };
 
-        const interval = setInterval(syncSimulatedTrades, 1000);
+        const interval = setInterval(syncTrades, 1000);
+        syncTrades(); // Initial
 
-        // Listen to storage events
-        const handleStorage = () => syncSimulatedTrades();
+        // Listen to storage events (only relevant for Sim)
+        const handleStorage = () => syncTrades();
         window.addEventListener('storage_update', handleStorage);
         window.addEventListener('storage', handleStorage);
 
@@ -120,7 +158,7 @@ const MobileApp = () => {
             window.removeEventListener('storage_update', handleStorage);
             window.removeEventListener('storage', handleStorage);
         };
-    }, []);
+    }, [token]);
 
     // User Data Polling (Balance Sync)
     useEffect(() => {

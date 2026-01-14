@@ -55,8 +55,10 @@ const OrderConfirmation = ({ trade, onDone }) => {
                         {trade.symbol} at {(trade.price || trade.entry_price || 0).toFixed(5)}
                     </div>
 
-                    {/* Line 3: ID */}
-                    <div className="text-[#8e8e93] text-[15px] font-medium">#{trade.id || '8102837834'}</div>
+                    {/* Line 3: ID (Randomized if simple ID) */}
+                    <div className="text-[#8e8e93] text-[15px] font-medium">
+                        #{trade.id && trade.id.toString().length > 6 ? trade.id : (Math.floor(Math.random() * 90000000) + 10000000)}
+                    </div>
                 </div>
             </div>
 
