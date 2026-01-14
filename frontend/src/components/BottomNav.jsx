@@ -57,14 +57,9 @@ const BottomNav = ({ activeTab, onTabChange }) => {
                         className={`flex-1 flex flex-col items-center justify-center cursor-pointer group`}
                         style={{ WebkitTapHighlightColor: 'transparent' }} // Remove mobile tap flash
                     >
-                        {/* Pill Container: Forced White background for active state via ref for !important */}
+                        {/* Pill Container: Forced White background for active state via strict class */}
                         <div
-                            className={`flex flex-col items-center justify-center px-3 py-1.5 rounded-full`}
-                            ref={el => {
-                                if (el) {
-                                    el.style.setProperty('background-color', isActive ? '#FFFFFF' : 'transparent', 'important');
-                                }
-                            }}
+                            className={`flex flex-col items-center justify-center px-3 py-1.5 rounded-full ${isActive ? 'nav-pill-active' : 'bg-transparent'}`}
                         >
                             {/* Icon: Active=Blue(Light), Inactive=Gray */}
                             <Icon

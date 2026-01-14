@@ -183,28 +183,56 @@ const MobileApp = () => {
 
     const handlePlaceOrder = async (type, volume, price) => {
         try {
-            const mockId = Math.floor(Math.random() * 10000000000);
+            // 1. Prepare base data
             const entryPrice = price || (type === 'buy' ? 1.08500 : 1.08505);
 
-            const newTrade = {
-                id: mockId,
-                symbol: 'EURUSD',
-                type: type,
-                volume: volume,
-                entry_price: entryPrice,
-                price: entryPrice,
-                currentPrice: entryPrice,
-                open_time: new Date().toISOString(),
-                profit: 0,
-                status: 'OPEN'
-            };
+            // 2. If connected to Cloud API, send to server
+            if (token && !token.startsWith('sim-token')) {
+                const tradeData = {
+                    symbol: 'EURUSD',
+                    type: type,
+                    volume: parseFloat(volume),
+                    entry_price: entryPrice,
+                    sl: 0,
+                    tp: 0
+                };
 
-            simulationBridge.addTrade(newTrade);
+                const serverTrade = await api.placeTrade(token, tradeData);
 
-            setLastTrade({ ...newTrade, id: `#${mockId}` });
+                // Use the server ID and data
+                const newTrade = {
+                    ...serverTrade,
+                    currentPrice: entryPrice, // Initialize
+                    profit: 0,
+                    status: 'OPEN'
+                };
+
+                // Update local state instantly (optimistic or actual)
+                setActiveTrades(prev => [newTrade, ...prev]);
+                setLastTrade(newTrade);
+            } else {
+                // 3. Fallback to Simulation Bridge (Offline/Demo)
+                const mockId = Math.floor(Math.random() * 10000000000);
+                const newTrade = {
+                    id: mockId,
+                    symbol: 'EURUSD',
+                    type: type,
+                    volume: volume,
+                    entry_price: entryPrice,
+                    price: entryPrice,
+                    currentPrice: entryPrice,
+                    open_time: new Date().toISOString(),
+                    profit: 0,
+                    status: 'OPEN'
+                };
+                simulationBridge.addTrade(newTrade);
+                setLastTrade({ ...newTrade, id: `#${mockId}` });
+            }
+
             setShowNewOrder(false);
             setShowConfirmation(true);
         } catch (error) {
+            console.error(error);
             alert("Failed to place order: " + error.message);
         }
     };
