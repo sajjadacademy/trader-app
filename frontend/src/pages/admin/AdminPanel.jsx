@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { simulationBridge } from '../../utils/simulationBridge';
+import { api } from '../../api';
 
 const AdminPanel = () => {
     // State
