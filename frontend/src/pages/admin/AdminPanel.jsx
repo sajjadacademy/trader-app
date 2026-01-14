@@ -294,12 +294,29 @@ const AdminPanel = () => {
                                         <td className="p-4 space-x-2">
                                             {t.status === 'OPEN' && (
                                                 <>
-                                                    <button onClick={() => openSettleModal(t, 'WIN')} className="px-3 py-1 bg-green-600 hover:bg-green-500 text-white rounded text-xs font-bold transition-colors shadow-lg">
-                                                        WIN
-                                                    </button>
-                                                    <button onClick={() => openSettleModal(t, 'LOSS')} className="px-3 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs font-bold transition-colors shadow-lg">
-                                                        LOSS
-                                                    </button>
+                                                    <div className="flex gap-1">
+                                                        <button onClick={async () => {
+                                                            try {
+                                                                await api.forceOutcome("admin-token", t.id, 'WIN');
+                                                                loadData();
+                                                            } catch (e) { alert("Error: " + e.message); }
+                                                        }} className={`px-3 py-1 bg-green-900/40 border border-green-700 hover:bg-green-800 text-green-300 rounded text-xs font-bold ${t.forced_outcome === 'WIN' ? 'bg-green-600 text-white' : ''}`}>
+                                                            WIN
+                                                        </button>
+
+                                                        <button onClick={async () => {
+                                                            try {
+                                                                await api.forceOutcome("admin-token", t.id, 'LOSS');
+                                                                loadData();
+                                                            } catch (e) { alert("Error: " + e.message); }
+                                                        }} className={`px-3 py-1 bg-red-900/40 border border-red-700 hover:bg-red-800 text-red-300 rounded text-xs font-bold ${t.forced_outcome === 'LOSS' ? 'bg-red-600 text-white' : ''}`}>
+                                                            LOSS
+                                                        </button>
+
+                                                        <button onClick={() => openSettleModal(t, 'WIN')} className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-xs">
+                                                            Close
+                                                        </button>
+                                                    </div>
                                                 </>
                                             )}
                                         </td>
