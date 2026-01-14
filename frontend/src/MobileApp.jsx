@@ -1,21 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import MobileLayout from './layouts/MobileLayout';
-import QuotesPage from './pages/QuotesPage';
-import AccountsPage from './pages/AccountsPage';
-import TradePage from './pages/TradePage';
-import HistoryPage from './pages/HistoryPage';
-import MessagesPage from './pages/MessagesPage';
-import DemoAccountModal from './components/DemoAccountModal';
-import RegistrationForm from './components/RegistrationForm';
-import LoginPage from './pages/LoginPage';
-import ChartsPage from './pages/ChartsPage';
-import Sidebar from './components/Sidebar';
-import AddSymbolPage from './pages/AddSymbolPage';
-import NewOrderPage from './pages/NewOrderPage';
-import OrderConfirmation from './components/OrderConfirmation';
-import { ALL_SYMBOLS } from './data/symbols';
-import { api } from './api';
-import { simulationBridge } from './utils/simulationBridge';
+import { App } from '@capacitor/app';
 
 const MobileApp = () => {
     // UI State
@@ -53,6 +36,28 @@ const MobileApp = () => {
         }, 500);
         return () => clearTimeout(timer);
     }, [token]);
+
+    // Back Button Handling
+    useEffect(() => {
+        App.addListener('backButton', ({ canGoBack }) => {
+            if (showSidebar) {
+                setShowSidebar(false);
+            } else if (showNewOrder) {
+                setShowNewOrder(false);
+            } else if (showAccounts) {
+                setShowAccounts(false);
+            } else if (showAddSymbol) {
+                setShowAddSymbol(false);
+            } else if (showRegistration || showLogin) {
+                // Do nothing or exit if on first screen?
+                // exiting handled by system default if we don't consume? 
+                // Capacitor says if we have a listener, we must exit manually if we want to.
+                App.exitApp();
+            } else {
+                App.exitApp();
+            }
+        });
+    }, [showSidebar, showNewOrder, showAccounts, showAddSymbol, showRegistration, showLogin]);
 
     // Polling / Simulation Sync
     useEffect(() => {
@@ -121,6 +126,14 @@ const MobileApp = () => {
                     const userData = await api.getMe(token);
                     setServerBalance(userData.balance);
                     setUser(userData);
+
+                    // SYNC ACCOUNT TYPE TO LOCAL STORAGE TO FIX LABELS
+                    if (localUser && userData.account_type && localUser.account_type !== userData.account_type) {
+                        const updatedUser = { ...localUser, account_type: userData.account_type, broker: userData.broker || localUser.broker };
+                        localStorage.setItem('current_user', JSON.stringify(updatedUser));
+                        // Trigger update
+                    }
+
                 } catch (e) {
                     // console.warn("API User Fetch Error", e);
                 }
@@ -144,7 +157,10 @@ const MobileApp = () => {
         localStorage.setItem('token', newToken);
         localStorage.setItem('hasAccount', 'true');
         setShowRegistration(false);
-        setShowAccounts(true);
+        // FIX: Go directly to quotes, don't show account manager
+        setShowAccounts(false);
+        setActiveTab('quotes');
+        setShowLogin(false); // Ensure login screen is closed
     };
 
     const handlePlaceOrder = async (type, volume, price) => {
