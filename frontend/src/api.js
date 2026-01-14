@@ -96,7 +96,44 @@ export const api = {
         return response.json();
     },
 
-    // Admin
+    // Admin User Management
+    getAllUsers: async () => {
+        const response = await fetchWithTimeout(`${API_URL}/admin/users`);
+        return response.json();
+    },
+
+    createUser: async (userData) => {
+        const response = await fetchWithTimeout(`${API_URL}/admin/users`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(userData)
+        });
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || "Failed to create user");
+        }
+        return response.json();
+    },
+
+    updateUser: async (userId, userData) => {
+        const response = await fetchWithTimeout(`${API_URL}/admin/users/${userId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(userData)
+        });
+        if (!response.ok) throw new Error("Failed to update user");
+        return response.json();
+    },
+
+    deleteUser: async (userId) => {
+        const response = await fetchWithTimeout(`${API_URL}/admin/users/${userId}`, {
+            method: 'DELETE'
+        });
+        if (!response.ok) throw new Error("Failed to delete user");
+        return response.json();
+    },
+
+    // Admin Trades
     getAllTrades: async (token) => {
         const response = await fetchWithTimeout(`${API_URL}/admin/trades`, {
             headers: { 'Authorization': `Bearer ${token}` }

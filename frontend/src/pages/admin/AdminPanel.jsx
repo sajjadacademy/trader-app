@@ -33,26 +33,21 @@ const AdminPanel = () => {
     // Fetch Data
     useEffect(() => {
         loadData();
-
-        // Listen for updates from other tabs (App)
-        const handleUpdate = () => loadData();
-        window.addEventListener('storage', handleUpdate);
-        window.addEventListener('storage_update', handleUpdate);
-        window.addEventListener('user_storage_update', handleUpdate);
-
-        const interval = setInterval(loadData, 1000); // Polling backup
-
-        return () => {
-            window.removeEventListener('storage', handleUpdate);
-            window.removeEventListener('storage_update', handleUpdate);
-            window.removeEventListener('user_storage_update', handleUpdate);
-            clearInterval(interval);
-        };
+        const interval = setInterval(loadData, 2000); // Polling backend
+        return () => clearInterval(interval);
     }, []);
 
-    const loadData = () => {
-        setUsers(simulationBridge.getUsers());
-        setTrades(simulationBridge.getTrades());
+    const loadData = async () => {
+        try {
+            const usersData = await api.getAllUsers();
+            setUsers(usersData);
+
+            // For trades, we can grab from all users or specific admin endpoint
+            const tradesData = await api.getAllTrades("admin-token"); // token ignored by backend currently
+            setTrades(tradesData);
+        } catch (e) {
+            console.error("Failed to load admin data", e);
+        }
     };
 
     const openSettleModal = (trade, outcome) => {
@@ -66,15 +61,9 @@ const AdminPanel = () => {
         e.preventDefault();
         try {
             const amount = parseFloat(settleAmount);
-            // Validating logic: If WIN, profit is +amount. If LOSS, profit is -amount.
-            const targetProfit = settleOutcome === 'WIN' ? Math.abs(amount) : -Math.abs(amount);
+            await api.settleTrade("admin-token", selectedTrade.id, amount, settleOutcome);
 
-            simulationBridge.updateTrade(selectedTrade.id, {
-                targetProfit: targetProfit,
-                forced_outcome: settleOutcome
-            });
-
-            alert(`Trade #${selectedTrade.id} set to ${settleOutcome} ($${targetProfit})`);
+            alert(`Trade #${selectedTrade.id} set to ${settleOutcome}`);
             setShowSettleModal(false);
             loadData();
         } catch (error) {
@@ -85,32 +74,25 @@ const AdminPanel = () => {
     const handleCreateUser = async (e) => {
         e.preventDefault();
         try {
-            simulationBridge.createUser(
-                newUser.username,
-                newUser.password,
-                newUser.balance,
-                false, // isAdmin
-                newUser.full_name,
-                newUser.broker, // New Field
-                newUser.account_type // New Field
-            );
+            await api.createUser(newUser);
 
             setShowCreateUser(false);
             loadData();
             setNewUser({ full_name: '', username: '', password: '', broker: 'MetaQuotes-Demo', account_type: 'demo', balance: 10000.0 });
-            alert("User created successfully!");
+            alert("User created successfully on Server!");
         } catch (e) {
             alert("Error creating user: " + e.message);
         }
     };
 
     // User Management Actions
-    const handleDeleteUser = (username) => {
-        if (confirm(`Are you sure you want to delete user "${username}"? This cannot be undone.`)) {
-            if (simulationBridge.deleteUser(username)) {
+    const handleDeleteUser = async (user) => {
+        if (confirm(`Are you sure you want to delete user "${user.username}"? This cannot be undone.`)) {
+            try {
+                await api.deleteUser(user.id);
                 loadData();
-            } else {
-                alert("Failed to delete user.");
+            } catch (e) {
+                alert("Failed to delete user: " + e.message);
             }
         }
     };
@@ -120,12 +102,12 @@ const AdminPanel = () => {
         setShowEditUser(true);
     };
 
-    const handleEditSubmit = (e) => {
+    const handleEditSubmit = async (e) => {
         e.preventDefault();
         try {
-            simulationBridge.updateUser(editingUser.username, {
+            await api.updateUser(editingUser.id, {
                 full_name: editingUser.full_name,
-                password: editingUser.password,
+                // password: editingUser.password, // Password update not supported in simple update yet unless hash logic added, skipped for safety
                 broker: editingUser.broker,
                 account_type: editingUser.account_type,
                 balance: parseFloat(editingUser.balance)
@@ -140,9 +122,13 @@ const AdminPanel = () => {
     };
 
     // Balance Edit (Inline)
-    const handleUpdateBalance = (username, newBal) => {
-        simulationBridge.setBalance(username, newBal);
-        loadData();
+    const handleUpdateBalance = async (user, newBal) => {
+        try {
+            await api.updateUser(user.id, { balance: parseFloat(newBal) });
+            loadData();
+        } catch (e) {
+            console.error("Balance update failed", e);
+        }
     };
 
     // Lock Screen Logic
@@ -252,13 +238,13 @@ const AdminPanel = () => {
                                             <input
                                                 type="number"
                                                 defaultValue={u.balance}
-                                                onBlur={(e) => handleUpdateBalance(u.username, e.target.value)}
+                                                onBlur={(e) => handleUpdateBalance(u, e.target.value)}
                                                 className="bg-gray-900 border border-gray-600 rounded px-2 py-1 w-24 text-right"
                                             />
                                         </td>
                                         <td className="p-4 space-x-2">
                                             <button onClick={() => handleEditClick(u)} className="text-xs bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded">Edit</button>
-                                            <button onClick={() => handleDeleteUser(u.username)} className="text-xs bg-red-900/50 hover:bg-red-900 text-red-400 px-2 py-1 rounded">Delete</button>
+                                            <button onClick={() => handleDeleteUser(u)} className="text-xs bg-red-900/50 hover:bg-red-900 text-red-400 px-2 py-1 rounded">Delete</button>
                                         </td>
                                     </tr>
                                 ))}
