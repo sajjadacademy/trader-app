@@ -9,10 +9,24 @@ const BASE_DOMAIN = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 export const API_URL = BASE_DOMAIN;
 const SOCKET_URL = BASE_DOMAIN.replace('https', 'wss').replace('http', 'ws');
 
+const fetchWithTimeout = async (resource, options = {}) => {
+    const { timeout = 10000 } = options;
+
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+
+    const response = await fetch(resource, {
+        ...options,
+        signal: controller.signal
+    });
+    clearTimeout(id);
+    return response;
+}
+
 export const api = {
     // Auth
     register: async (userData) => {
-        const response = await fetch(`${API_URL}/auth/register`, {
+        const response = await fetchWithTimeout(`${API_URL}/auth/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(userData),
@@ -36,20 +50,27 @@ export const api = {
         formData.append('username', username);
         formData.append('password', password);
 
-        const response = await fetch(`${API_URL}/auth/token`, {
-            method: 'POST',
-            body: formData, // fetch automatically sets Content-Type to application/x-www-form-urlencoded
-        });
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.detail || 'Login failed');
+        try {
+            const response = await fetchWithTimeout(`${API_URL}/auth/token`, {
+                method: 'POST',
+                body: formData,
+            });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || 'Login failed');
+            }
+            return response.json();
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                throw new Error("Connection timed out. Check internet or server status.");
+            }
+            throw error;
         }
-        return response.json(); // Returns { access_token, token_type }
     },
 
     // User Data
     getMe: async (token) => {
-        const response = await fetch(`${API_URL}/auth/me`, {
+        const response = await fetchWithTimeout(`${API_URL}/auth/me`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         return response.json();
@@ -57,14 +78,14 @@ export const api = {
 
     // Trades (User)
     getTrades: async (token) => {
-        const response = await fetch(`${API_URL}/trades/`, {
+        const response = await fetchWithTimeout(`${API_URL}/trades/`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         return response.json();
     },
 
     placeTrade: async (token, tradeData) => {
-        const response = await fetch(`${API_URL}/trades/`, {
+        const response = await fetchWithTimeout(`${API_URL}/trades/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -77,14 +98,14 @@ export const api = {
 
     // Admin
     getAllTrades: async (token) => {
-        const response = await fetch(`${API_URL}/admin/trades`, {
+        const response = await fetchWithTimeout(`${API_URL}/admin/trades`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        return response.json(); // Returns list of all trades
+        return response.json();
     },
 
     forceOutcome: async (token, tradeId, outcome) => {
-        const response = await fetch(`${API_URL}/admin/trades/${tradeId}/outcome?outcome=${outcome}`, {
+        const response = await fetchWithTimeout(`${API_URL}/admin/trades/${tradeId}/outcome?outcome=${outcome}`, {
             method: 'PUT',
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -92,7 +113,7 @@ export const api = {
     },
 
     closeTrade: async (token, tradeId, price) => {
-        const response = await fetch(`${API_URL}/trades/${tradeId}/close?close_price=${price}`, {
+        const response = await fetchWithTimeout(`${API_URL}/trades/${tradeId}/close?close_price=${price}`, {
             method: 'PUT',
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -100,7 +121,7 @@ export const api = {
     },
 
     settleTrade: async (token, tradeId, amount, outcome) => {
-        const response = await fetch(`${API_URL}/admin/trades/${tradeId}/settle`, {
+        const response = await fetchWithTimeout(`${API_URL}/admin/trades/${tradeId}/settle`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

@@ -64,8 +64,8 @@ const LoginPage = ({ onClose, onLoginSuccess, onRegister, isRoot = false }) => {
 
         // 3. Both Failed
         setLoading(false);
-        alert("Login Failed: Invalid credentials or connection issue.");
-        setError("Invalid credentials or connection issue.");
+        alert(`Login Failed: ${apiError?.message || "Connection issue"}`);
+        setError(`Login Failed: ${apiError?.message || "Connection issue"}`);
     };
 
     const handleBack = () => {
